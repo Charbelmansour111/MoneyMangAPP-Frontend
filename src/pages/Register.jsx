@@ -10,7 +10,7 @@ function Register() {
     name: '',
     gmail: '',
     password: '',
-    currenciesCode: 'USD'
+   
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ function Register() {
       await register(formData);
       navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed');
+      setError(err.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ function Register() {
               marginBottom: '0.3rem',
               fontFamily: 'Georgia, serif'
             }}>
-              Walli
+              CozyCoin
             </div>
             <p style={{
               opacity: 0.7,
@@ -78,7 +78,7 @@ function Register() {
               lineHeight: 1.8,
               marginBottom: '2rem'
             }}>
-              Join thousands of users who take control of their finances with Walli.
+              Join thousands of users who take control of their finances with CozyCoin.
             </p>
 
             {/* Feature list */}
@@ -125,7 +125,7 @@ function Register() {
               color: '#6d28d9',
               fontFamily: 'Georgia, serif'
             }}>
-              Walli
+              CozyCoin
             </div>
             <p style={{
               color: '#9ca3af',

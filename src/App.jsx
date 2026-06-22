@@ -5,8 +5,9 @@ import Home from './pages/Home';
 import Transactions from './pages/Transactions';
 import Budget from './pages/Budget';
 import Savings from './pages/Savings';
+import Reports from './pages/Reports';
+import Accounts from './pages/Accounts';
 
-// Protected route — redirect to login if no token
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -19,11 +20,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Protected routes */}
         <Route path="/" element={
           <ProtectedRoute>
             <Home />
@@ -45,7 +44,17 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* Redirect unknown routes to login */}
+         <Route path="/reports" element={
+        <ProtectedRoute>
+        <Reports />
+        </ProtectedRoute>
+        } />      
+        <Route path="/accounts" element={
+        <ProtectedRoute>
+        <Accounts />
+       </ProtectedRoute>
+        } />
+
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>

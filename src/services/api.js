@@ -1,23 +1,89 @@
-import axios from 'axios';
+const API_URL = 'http://localhost:5189/api';
 
-const API_URL = 'https://localhost:7080/api';
-
-const api = axios.create({
-  baseURL: API_URL,
-});
-
-// Automatically add JWT token to every request
-api.interceptors.request.use((config) => {
+// Core fetch wrapper — handles JWT token, JSON parsing, and errors
+async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('token');
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
-  return config;
-});
 
-// USER
-export const register = (data) => api.post('/User/register', data);
-export const login = (data) => api.post('/User/login', data);
-export const getProfile = () => api.get('/User/profile');
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
 
-export default api;
+  // Try to parse JSON response (even for errors, since our backend sends { message: "..." })
+  let data = null;
+  const text = await response.text();
+  if (text) {
+    data = JSON.parse(text);
+  }
+
+  if (!response.ok) {
+    const error = new Error(data?.message || 'Something went wrong');
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+
+  return data;
+}
+
+// ===== USER =====
+export const register = (data) =>
+  apiFetch('/User/register', { method: 'POST', body: JSON.stringify(data) });
+
+export const login = (data) =>
+  apiFetch('/User/login', { method: 'POST', body: JSON.stringify(data) });
+
+export const getProfile = () =>
+  apiFetch('/User/profile', { method: 'GET' });
+
+// ===== ACCOUNT =====
+export const getAccounts = () =>
+  apiFetch('/Account', { method: 'GET' });
+
+export const createAccount = (data) =>
+  apiFetch('/Account', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateAccount = (id, data) =>
+  apiFetch(`/Account/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteAccount = (id) =>
+  apiFetch(`/Account/${id}`, { method: 'DELETE' });
+
+// ===== CATEGORY =====
+export const getCategories = () =>
+  apiFetch('/Category', { method: 'GET' });
+
+export const createCategory = (data) =>
+  apiFetch('/Category', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateCategory = (id, data) =>
+  apiFetch(`/Category/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteCategory = (id) =>
+  apiFetch(`/Category/${id}`, { method: 'DELETE' });
+
+// ===== TRANSACTION =====
+export const getTransactions = () =>
+  apiFetch('/Transaction', { method: 'GET' });
+
+export const createTransaction = (data) =>
+  apiFetch('/Transaction', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateTransaction = (id, data) =>
+  apiFetch(`/Transaction/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteTransaction = (id) =>
+  apiFetch(`/Transaction/${id}`, { method: 'DELETE' });
+
+// ===== DASHBOARD =====
+export const getDashboardSummary = (months = 6) =>
+  apiFetch(`/Dashboard/summary?months=${months}`, { method: 'GET' });

@@ -19,13 +19,13 @@ function Login() {
     setError('');
     setLoading(true);
     try {
-      const response = await login(formData);
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userId', response.data.userId);
-      localStorage.setItem('name', response.data.name);
+       const response = await login(formData);
+       localStorage.setItem('token', response.token);
+       localStorage.setItem('userId', response.userId);
+       localStorage.setItem('name', response.name);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ function Login() {
               marginBottom: '0.3rem',
               fontFamily: 'Georgia, serif'
             }}>
-              Walli
+              CozyCoin
             </div>
             <p style={{
               opacity: 0.7,
@@ -124,7 +124,7 @@ function Login() {
               color: '#6d28d9',
               fontFamily: 'Georgia, serif'
             }}>
-              Walli
+              CozyCoin
             </div>
             <p style={{
               color: '#9ca3af',
