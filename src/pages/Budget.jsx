@@ -56,13 +56,10 @@ function Budget() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const [budgetData, catData, txData] = await Promise.all([
         getBudgets(),
         getCategories(),
-        fetch(`${API_URL}/Transaction`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json()),
+        apiFetch('/Transaction', { method: 'GET' }),
       ]);
       setBudgets(budgetData);
       setCategories(catData);
@@ -74,39 +71,41 @@ function Budget() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    const load = async () => { await fetchAll(); };
+    load();
+  }, []);
 
   const getSpent = (budget) => {
-  const now = new Date();
-  let start;
-  if (budget.period === 'weekly') {
-    start = new Date(now);
-    start.setDate(now.getDate() - now.getDay());
-  } else if (budget.period === 'yearly') {
-    start = new Date(now.getFullYear(), 0, 1);
-  } else {
-    start = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
+    const now = new Date();
+    let start;
+    if (budget.period === 'weekly') {
+      start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+    } else if (budget.period === 'yearly') {
+      start = new Date(now.getFullYear(), 0, 1);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
 
-  // Get all category IDs that belong to this budget's category (parent + children + grandchildren)
-  const relatedCategoryIDs = categories
-    .filter(c =>
-      c.categoryID === budget.categoryID ||
-      c.parentID === budget.categoryID ||
-      categories.some(p => p.categoryID === c.parentID && p.parentID === budget.categoryID)
-    )
-    .map(c => c.categoryID);
+    const relatedCategoryIDs = categories
+      .filter(c =>
+        c.categoryID === budget.categoryID ||
+        c.parentID === budget.categoryID ||
+        categories.some(p => p.categoryID === c.parentID && p.parentID === budget.categoryID)
+      )
+      .map(c => c.categoryID);
 
-  return transactions
-    .filter(t => {
-      const tDate = new Date(t.date);
-      const matchCat = relatedCategoryIDs.includes(t.categoryID);
-      const matchDate = tDate >= start;
-      const isExpense = t.status === 'expense';
-      return matchCat && matchDate && isExpense;
-    })
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-};
+    return transactions
+      .filter(t => {
+        const tDate = new Date(t.date);
+        const matchCat = relatedCategoryIDs.includes(t.categoryID);
+        const matchDate = tDate >= start;
+        const isExpense = t.status === 'expense';
+        return matchCat && matchDate && isExpense;
+      })
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  };
   const getCategoryName = (categoryID) => {
     const cat = categories.find(c => c.categoryID === categoryID);
     return cat ? cat.name : 'Unknown';
@@ -257,11 +256,9 @@ function Budget() {
             </div>
           </div>
 
-          {/* Overall progress bar */}
           <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 999, height: 10, overflow: 'hidden' }}>
             <div style={{
-              height: '100%',
-              borderRadius: 999,
+              height: '100%', borderRadius: 999,
               width: `${Math.min(100, totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0)}%`,
               background: totalSpent > totalBudget ? '#ef4444' : '#86efac',
               transition: 'width 0.5s ease',
@@ -316,26 +313,8 @@ function Budget() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => openEdit(b)}
-                        style={{
-                          background: '#f3f4f6', border: 'none', borderRadius: 8,
-                          padding: '0.4rem 0.75rem', cursor: 'pointer',
-                          fontSize: '0.8rem', fontWeight: 600, color: '#374151',
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(b.budgetID)}
-                        style={{
-                          background: '#fef2f2', border: 'none', borderRadius: 8,
-                          padding: '0.4rem 0.75rem', cursor: 'pointer',
-                          fontSize: '0.8rem', fontWeight: 600, color: '#ef4444',
-                        }}
-                      >
-                        Delete
-                      </button>
+                      <button onClick={() => openEdit(b)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Edit</button>
+                      <button onClick={() => setDeleteConfirm(b.budgetID)} style={{ background: '#fef2f2', border: 'none', borderRadius: 8, padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: '#ef4444' }}>Delete</button>
                     </div>
                   </div>
 
