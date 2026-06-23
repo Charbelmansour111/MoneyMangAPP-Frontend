@@ -85,25 +85,38 @@ function Home() {
   });
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [data, cats, accs] = await Promise.all([
-          getDashboardSummary(trendMonths),
-          getCategories(),
-          getAccounts(),
-        ]);
-        setSummary(data);
-        setCategories(cats);
-        setAccounts(accs);
-      } catch (err) {
-        setError(err.message || 'Failed to load dashboard');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [selectedMonth, selectedYear, trendMonths]);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [data, cats, accs] = await Promise.all([
+        getDashboardSummary(trendMonths),
+        getCategories(),
+        getAccounts(),
+      ]);
+      setSummary(data);
+      setCategories(cats);
+      setAccounts(accs);
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [selectedMonth, selectedYear]);
+
+useEffect(() => {
+  if (!summary) return;
+  const fetchSummary = async () => {
+    try {
+      const data = await getDashboardSummary(trendMonths);
+      setSummary(data);
+    } catch (err) {
+      console.error('Failed to refresh trend', err);
+    }
+  };
+  fetchSummary();
+}, [trendMonths]);
 
   const goToPrevMonth = () => {
     if (selectedMonth === 0) {

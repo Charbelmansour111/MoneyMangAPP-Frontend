@@ -84,6 +84,5 @@ export const updateTransaction = (id, data) =>
 export const deleteTransaction = (id) =>
   apiFetch(`/Transaction/${id}`, { method: 'DELETE' });
 
-// ===== DASHBOARD =====
-export const getDashboardSummary = (months = 6) =>
-  apiFetch(`/Dashboard/summary?months=${months}`, { method: 'GET' });
+export const getDashboardSummary = (months = 6, month = 0, year = 0) =>
+  apiFetch(`/Dashboard/summary?months=${months}&month=${month + 1}&year=${year}`, { method: 'GET' });
