@@ -1,25 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createCategory, getCategories } from '../services/api';
 import { CATEGORY_ICONS } from '../utils/categoryIcons';
-
-const PREDEFINED_SUBS = {
-  'Food & Dining':    ['Restaurants', 'Groceries', 'Fast Food', 'Coffee & Cafes', 'Takeaway', 'Bakery'],
-  'Transport':        ['Fuel', 'Taxi & Rideshare', 'Public Transit', 'Parking', 'Car Maintenance', 'Tolls'],
-  'Shopping':         ['Clothing', 'Electronics', 'Home & Garden', 'Personal Care', 'Accessories'],
-  'Bills & Utilities':['Electricity', 'Water & Gas', 'Internet', 'Phone Bill', 'Rent', 'Insurance'],
-  'Health & Fitness': ['Pharmacy', 'Doctor Visit', 'Gym', 'Health Insurance', 'Dental', 'Optician'],
-  'Health':           ['Pharmacy', 'Doctor Visit', 'Gym', 'Health Insurance', 'Dental', 'Optician'],
-  'Entertainment':    ['Movies & Shows', 'Games', 'Sports Events', 'Travel', 'Books', 'Concerts'],
-  'Education':        ['Tuition', 'Books & Supplies', 'Online Courses', 'School Fees', 'Stationery'],
-  'Subscriptions':    ['Streaming', 'Music', 'Cloud Storage', 'Software', 'Gaming', 'News'],
-  'Salary':           ['Monthly Salary', 'Bonus', 'Overtime', 'Commission'],
-  'Freelance':        ['Consulting', 'Design Work', 'Development', 'Writing', 'Photography'],
-  'Investment':       ['Dividends', 'Capital Gains', 'Crypto', 'Interest', 'ETF Returns'],
-  'Business':         ['Sales Revenue', 'Service Fees', 'Commission', 'Partnership Income'],
-  'Rental Income':    ['Monthly Rent', 'Short-term Rental', 'Parking Space'],
-  'Gift':             ['Birthday Gift', 'Holiday Gift', 'Wedding Gift', 'Cash Gift'],
-  'Other Income':     ['Refund', 'Tax Return', 'Lottery', 'Cashback'],
-};
 
 function CategoryPicker({ categories: initialCategories, transType, onSelect, selectedID }) {
   const [categories, setCategories] = useState(initialCategories);
@@ -27,9 +8,13 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customName, setCustomName] = useState('');
   const [creating, setCreating] = useState(false);
-  const [quickAdding, setQuickAdding] = useState(''); // tracks which suggestion is being added
 
-  const rootCats = categories.filter(c => c.categoryType === transType && c.parentID === null);
+  useEffect(() => {
+    const sync = () => setCategories(initialCategories);
+    sync();
+  }, [initialCategories]);
+
+  const rootCats = categories.filter(c => c.categoryType === transType && c.parentID == null);
 
   const handleRootClick = (cat) => {
     if (activeRoot?.categoryID === cat.categoryID) {
@@ -38,8 +23,7 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
       return;
     }
     const children = categories.filter(c => c.parentID === cat.categoryID);
-    const hasSuggestions = (PREDEFINED_SUBS[cat.name] || []).length > 0;
-    if (children.length === 0 && !hasSuggestions) {
+    if (children.length === 0) {
       onSelect(cat);
     } else {
       setActiveRoot(cat);
@@ -54,7 +38,6 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
 
   const handleQuickAdd = async (name) => {
     if (!activeRoot || creating) return;
-    setQuickAdding(name);
     setCreating(true);
     try {
       const result = await createCategory({
@@ -65,14 +48,15 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
       });
       const fresh = await getCategories();
       setCategories(fresh);
-      const created = fresh.find(c => c.categoryID === result.categoryId) || { categoryID: result.categoryId, name };
+      const newID = result.categoryId ?? result.categoryID;
+      const created = fresh.find(c => String(c.categoryID) === String(newID))
+        || { categoryID: newID, name, parentID: activeRoot.categoryID };
       onSelect(created);
       setActiveRoot(null);
     } catch (err) {
       alert(err.message || 'Failed to create category');
     } finally {
       setCreating(false);
-      setQuickAdding('');
     }
   };
 
@@ -83,7 +67,9 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
     setShowCustomInput(false);
   };
 
-  const selectedCat = selectedID ? categories.find(c => c.categoryID === selectedID) : null;
+  const selectedCat = selectedID != null
+    ? categories.find(c => String(c.categoryID) === String(selectedID))
+    : null;
 
   return (
     <div>
@@ -97,8 +83,8 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
         {rootCats.map(cat => {
           const isActive = activeRoot?.categoryID === cat.categoryID;
           const isSelected = selectedCat && (
-            selectedCat.categoryID === cat.categoryID ||
-            selectedCat.parentID === cat.categoryID
+            String(selectedCat.categoryID) === String(cat.categoryID) ||
+            String(selectedCat.parentID) === String(cat.categoryID)
           );
           return (
             <button
@@ -141,8 +127,14 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
         })}
 
         {rootCats.length === 0 && (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem', padding: '1rem' }}>
-            No categories yet. Ask your admin to create root categories.
+          <div style={{
+            gridColumn: '1/-1',
+            textAlign: 'center',
+            color: '#9ca3af',
+            fontSize: '0.85rem',
+            padding: '1rem',
+          }}>
+            No categories yet.
           </div>
         )}
       </div>
@@ -150,9 +142,6 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
       {/* Subcategory panel */}
       {activeRoot && (() => {
         const existingSubs = categories.filter(c => c.parentID === activeRoot.categoryID);
-        const predefined = PREDEFINED_SUBS[activeRoot.name] || [];
-        const existingNames = new Set(existingSubs.map(c => c.name));
-        const suggestions = predefined.filter(name => !existingNames.has(name));
 
         return (
           <div style={{
@@ -174,7 +163,15 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
               </span>
               <button
                 onClick={() => { setActiveRoot(null); setShowCustomInput(false); }}
-                style={{ border: 'none', background: 'none', color: '#a78bfa', cursor: 'pointer', fontSize: '0.9rem', lineHeight: 1, padding: '0 2px' }}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  color: '#a78bfa',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  lineHeight: 1,
+                  padding: '0 2px',
+                }}
               >
                 ✕
               </button>
@@ -184,7 +181,7 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
             {existingSubs.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
                 {existingSubs.map(sub => {
-                  const isSel = selectedID === sub.categoryID;
+                  const isSel = String(selectedID) === String(sub.categoryID);
                   return (
                     <button
                       key={sub.categoryID}
@@ -208,35 +205,14 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
               </div>
             )}
 
-            {/* Predefined suggestions */}
-            {suggestions.length > 0 && (
-              <div style={{ marginBottom: '0.5rem' }}>
-                <div style={{ fontSize: '0.68rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: '0.35rem' }}>
-                  Quick add
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                  {suggestions.map(name => (
-                    <button
-                      key={name}
-                      onClick={() => handleQuickAdd(name)}
-                      disabled={creating}
-                      style={{
-                        padding: '0.3rem 0.7rem',
-                        borderRadius: 20,
-                        border: '1.5px dashed #c4b5fd',
-                        background: quickAdding === name ? '#f5f3ff' : 'white',
-                        color: '#7c3aed',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: creating ? 'not-allowed' : 'pointer',
-                        opacity: creating && quickAdding !== name ? 0.5 : 1,
-                        transition: 'all 0.12s',
-                      }}
-                    >
-                      {quickAdding === name ? '...' : `+ ${name}`}
-                    </button>
-                  ))}
-                </div>
+            {/* No subcategories message */}
+            {existingSubs.length === 0 && (
+              <div style={{
+                fontSize: '0.78rem',
+                color: '#a78bfa',
+                marginBottom: '0.5rem',
+              }}>
+                No subcategories yet — add one below
               </div>
             )}
 
@@ -254,10 +230,9 @@ function CategoryPicker({ categories: initialCategories, transType, onSelect, se
                   fontSize: '0.76rem',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  marginTop: suggestions.length > 0 ? '0.25rem' : 0,
                 }}
               >
-                + Custom subcategory
+                + Add subcategory
               </button>
             ) : (
               <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem' }}>
