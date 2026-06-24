@@ -1,55 +1,53 @@
 import { useState, useEffect } from 'react';
-import { getTransactions, getAccounts, getCategories, createTransaction, deleteTransaction, updateTransaction } from '../services/api';
+import { getTransactions, getAccounts, getCategories, deleteTransaction, updateTransaction } from '../services/api';
 import Layout from '../components/Layout';
 import CategoryPicker from '../components/CategoryPicker';
+import TransactionModal from '../components/TransactionModal';
+import { getCategoryIcon } from '../utils/categoryIcons';
 
 const TYPE_COLORS = {
-  income: { color: '#059669', bg: '#ecfdf5', label: 'Income' },
-  expense: { color: '#ef4444', bg: '#fef2f2', label: 'Expense' },
+  income:   { color: '#059669', bg: '#ecfdf5', label: 'Income' },
+  expense:  { color: '#ef4444', bg: '#fef2f2', label: 'Expense' },
   transfer: { color: '#7c3aed', bg: '#f5f3ff', label: 'Transfer' },
 };
 
+// Icon block for a transaction row
+function TxIcon({ t, categories, size = 44 }) {
+  const tc = TYPE_COLORS[t.status] || TYPE_COLORS.income;
+  const emoji = getCategoryIcon(categories, t.categoryID ?? t.categoryId);
+  return (
+    <div style={{ width: size, height: size, borderRadius: 12, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: emoji ? '1.25rem' : undefined }}>
+      {emoji ? emoji : t.status === 'income' ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      ) : t.status === 'expense' ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      )}
+    </div>
+  );
+}
+
 function Transactions() {
   const [transactions, setTransactions] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
+  const [accounts, setAccounts]         = useState([]);
+  const [categories, setCategories]     = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
+  const [filter, setFilter]             = useState('all');
+  const [search, setSearch]             = useState('');
+  const [expandedID, setExpandedID]     = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showEditModal, setShowEditModal]   = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [selectedCategoryName, setSelectedCategoryName] = useState('');
-  const [formData, setFormData] = useState({
-    status: 'income',
-    amount: '',
-    currenciesCode: 'USD',
-    description: '',
-    date: new Date().toISOString().split('T')[0],
-    accountID: '',
-    categoryID: '',
-    toAccountID: '',
-  });
-  const [editData, setEditData] = useState({
-    categoryID: '',
-    amount: '',
-    description: '',
-    date: '',
-  });
-  const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm]   = useState(null);
+  const [editData, setEditData]         = useState({ categoryID: '', amount: '', description: '', date: '' });
+  const [submitting, setSubmitting]     = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [txns, accs, cats] = await Promise.all([
-        getTransactions(),
-        getAccounts(),
-        getCategories(),
-      ]);
+      const [txns, accs, cats] = await Promise.all([getTransactions(), getAccounts(), getCategories()]);
       setTransactions(txns);
       setAccounts(accs);
       setCategories(cats);
@@ -60,40 +58,7 @@ function Transactions() {
     }
   };
 
-  useEffect(() => {
-    const load = async () => { await fetchAll(); };
-    load();
-  }, []);
-
-  const handleAdd = async () => {
-    if (accounts.length === 0) {
-      alert('You need to create an account first before adding transactions!');
-      setShowAddModal(false);
-      return;
-    }
-    if (!formData.amount || !formData.accountID) {
-      alert('Please fill in the amount and select an account.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await createTransaction({
-        ...formData,
-        amount: parseFloat(formData.amount),
-        accountID: parseInt(formData.accountID),
-        categoryID: formData.categoryID ? parseInt(formData.categoryID) : null,
-        toAccountID: formData.toAccountID ? parseInt(formData.toAccountID) : null,
-        date: new Date(formData.date).toISOString(),
-      });
-      setShowAddModal(false);
-      resetForm();
-      fetchAll();
-    } catch (err) {
-      alert(err.message || 'Failed to create transaction');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  useEffect(() => { fetchAll(); }, []);
 
   const handleEdit = async () => {
     setSubmitting(true);
@@ -118,6 +83,7 @@ function Transactions() {
     try {
       await deleteTransaction(id);
       setDeleteConfirm(null);
+      if (expandedID === id) setExpandedID(null);
       fetchAll();
     } catch (err) {
       alert(err.message || 'Failed to delete transaction');
@@ -132,68 +98,38 @@ function Transactions() {
       description: t.description || '',
       date: new Date(t.date).toISOString().split('T')[0],
     });
+    setExpandedID(null);
     setShowEditModal(true);
-  };
-
-  const openDetail = (t) => {
-    setSelectedTransaction(t);
-    setShowDetailModal(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      status: 'income',
-      amount: '',
-      currenciesCode: 'USD',
-      description: '',
-      date: new Date().toISOString().split('T')[0],
-      accountID: '',
-      categoryID: '',
-      toAccountID: '',
-    });
-    setSelectedCategoryName('');
   };
 
   const getCategoryPath = (categoryID) => {
     if (!categoryID) return null;
-    const cat = categories.find(c => c.categoryID === categoryID);
+    const id = String(categoryID);
+    const cat = categories.find(c => String(c.categoryID) === id);
     if (!cat) return null;
     if (!cat.parentID) return cat.name;
-    const parent = categories.find(c => c.categoryID === cat.parentID);
+    const parent = categories.find(c => String(c.categoryID) === String(cat.parentID));
     if (!parent) return cat.name;
     if (!parent.parentID) return `${parent.name} › ${cat.name}`;
-    const grandparent = categories.find(c => c.categoryID === parent.parentID);
-    if (!grandparent) return `${parent.name} › ${cat.name}`;
-    return `${grandparent.name} › ${parent.name} › ${cat.name}`;
+    const grandparent = categories.find(c => String(c.categoryID) === String(parent.parentID));
+    return grandparent ? `${grandparent.name} › ${parent.name} › ${cat.name}` : `${parent.name} › ${cat.name}`;
   };
 
   const filtered = transactions
     .filter(t => filter === 'all' || t.status === filter)
-    .filter(t => !search || (t.description || '').toLowerCase().includes(search.toLowerCase()));
+    .filter(t => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (t.description || '').toLowerCase().includes(q)
+        || (getCategoryPath(t.categoryID ?? t.categoryId) || '').toLowerCase().includes(q);
+    });
 
-  const totalIncome = transactions.filter(t => t.status === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalIncome   = transactions.filter(t => t.status === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpenses = transactions.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
-  const balance = totalIncome - totalExpenses;
+  const balance       = totalIncome - totalExpenses;
 
-  const inputStyle = {
-    width: '100%',
-    border: '1.5px solid #e5e7eb',
-    borderRadius: 10,
-    padding: '0.7rem 1rem',
-    fontSize: '0.9rem',
-    background: 'white',
-    color: '#1e1b4b',
-    outline: 'none',
-    boxSizing: 'border-box',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontWeight: 600,
-    color: '#374151',
-    fontSize: '0.85rem',
-    marginBottom: '0.4rem',
-  };
+  const inputStyle = { width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.9rem', background: 'white', color: '#1e1b4b', outline: 'none', boxSizing: 'border-box' };
+  const labelStyle = { display: 'block', fontWeight: 600, color: '#374151', fontSize: '0.85rem', marginBottom: '0.4rem' };
 
   if (loading) return (
     <Layout>
@@ -225,7 +161,12 @@ function Transactions() {
             <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#1e1b4b' }}>Transactions</h1>
             <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.85rem' }}>{transactions.length} total transactions</p>
           </div>
-          <button onClick={() => { resetForm(); setShowAddModal(true); }} style={{ background: 'linear-gradient(135deg, #1e1b4b, #4c1d95)', color: 'white', border: 'none', borderRadius: 12, padding: '0.7rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>+ Add Transaction</button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{ background: 'linear-gradient(135deg, #1e1b4b, #4c1d95)', color: 'white', border: 'none', borderRadius: 12, padding: '0.7rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
+          >
+            + Add Transaction
+          </button>
         </div>
 
         {/* OVERVIEW */}
@@ -237,21 +178,17 @@ function Transactions() {
           </div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', marginBottom: '1.25rem' }} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.4rem' }}>Income</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#86efac' }}>+${totalIncome.toFixed(2)}</div>
-              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.2rem' }}>{transactions.filter(t => t.status === 'income').length} entries</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.4rem' }}>Expenses</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fca5a5' }}>-${totalExpenses.toFixed(2)}</div>
-              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.2rem' }}>{transactions.filter(t => t.status === 'expense').length} entries</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.4rem' }}>Transfers</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#c4b5fd' }}>{transactions.filter(t => t.status === 'transfer').length}</div>
-              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.2rem' }}>total transfers</div>
-            </div>
+            {[
+              { label: 'Income', value: `+$${totalIncome.toFixed(2)}`, color: '#86efac', count: transactions.filter(t => t.status === 'income').length, unit: 'entries' },
+              { label: 'Expenses', value: `-$${totalExpenses.toFixed(2)}`, color: '#fca5a5', count: transactions.filter(t => t.status === 'expense').length, unit: 'entries' },
+              { label: 'Transfers', value: transactions.filter(t => t.status === 'transfer').length, color: '#c4b5fd', count: null, unit: 'total transfers' },
+            ].map(({ label, value, color, count, unit }) => (
+              <div key={label} style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.4rem' }}>{label}</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color }}>{value}</div>
+                <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.2rem' }}>{count !== null ? `${count} ${unit}` : unit}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -270,7 +207,7 @@ function Transactions() {
           </div>
         </div>
 
-        {/* LIST */}
+        {/* TRANSACTION LIST */}
         <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
@@ -280,39 +217,89 @@ function Transactions() {
             </div>
           ) : (
             filtered.map((t, i) => {
-              const typeInfo = TYPE_COLORS[t.status] || TYPE_COLORS.income;
-              const isTransfer = t.status === 'transfer';
-              const categoryPath = getCategoryPath(t.categoryID);
+              const typeInfo    = TYPE_COLORS[t.status] || TYPE_COLORS.income;
+              const isTransfer  = t.status === 'transfer';
+              const catID       = t.categoryID ?? t.categoryId;
+              const categoryPath = getCategoryPath(catID);
+              const isExpanded  = expandedID === t.transactionID;
+              const isLast      = i === filtered.length - 1;
+
               return (
-                <div key={t.transactionID} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderBottom: i < filtered.length - 1 ? '1px solid #f3f4f6' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
-                  onClick={() => openDetail(t)} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'white'}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: typeInfo.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {t.status === 'income' ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                      ) : t.status === 'expense' ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                      )}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, color: '#1e1b4b', fontSize: '0.9rem' }}>{categoryPath || t.description || typeInfo.label}</div>
-                      <div style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: 2, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ background: typeInfo.bg, color: typeInfo.color, padding: '0.1rem 0.5rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>{typeInfo.label}</span>
-                        {t.description && categoryPath && <span>{t.description} •</span>}
-                        <span>{new Date(t.date).toLocaleDateString()}</span>
+                <div key={t.transactionID} style={{ borderBottom: isLast && !isExpanded ? 'none' : '1px solid #f3f4f6' }}>
+                  {/* ROW */}
+                  <div
+                    onClick={() => setExpandedID(isExpanded ? null : t.transactionID)}
+                    onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.9rem 1.25rem', cursor: 'pointer', transition: 'background 0.1s' }}
+                  >
+                    {/* Left: icon + title */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                      <TxIcon t={t} categories={categories} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, color: '#1e1b4b', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {categoryPath || t.description || typeInfo.label}
+                        </div>
+                        <div style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: 2, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span style={{ background: typeInfo.bg, color: typeInfo.color, padding: '0.1rem 0.5rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>{typeInfo.label}</span>
+                          {t.description && categoryPath && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{t.description}</span>}
+                          <span>{new Date(t.date).toLocaleDateString()}</span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Right: amount + chevron */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: typeInfo.color, minWidth: 80, textAlign: 'right' }}>
+                        {t.status === 'income' ? '+' : t.status === 'expense' ? '-' : ''}${Math.abs(t.amount).toFixed(2)}
+                      </div>
+                      <svg
+                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </div>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: '1rem', color: typeInfo.color, minWidth: 90, textAlign: 'right' }}>
-                    {t.status === 'income' ? '+' : t.status === 'expense' ? '-' : ''}${Math.abs(t.amount).toFixed(2)}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }} onClick={e => e.stopPropagation()}>
-                    {!isTransfer && <button onClick={() => openEdit(t)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '0.45rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Edit</button>}
-                    {!isTransfer && <button onClick={() => setDeleteConfirm(t.transactionID)} style={{ background: '#fef2f2', border: 'none', borderRadius: 8, padding: '0.45rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: '#ef4444' }}>Delete</button>}
-                    {isTransfer && <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>transfer</span>}
-                  </div>
+
+                  {/* ACCORDION DETAIL */}
+                  {isExpanded && (
+                    <div style={{ background: '#fafafa', borderTop: '1px solid #f3f4f6', padding: '1rem 1.25rem 1.25rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1.5rem', marginBottom: '1rem' }}>
+                        {[
+                          { label: 'Category',    value: categoryPath || 'Uncategorized' },
+                          { label: 'Description', value: t.description || '—' },
+                          { label: 'Date',        value: new Date(t.date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) },
+                          { label: 'Time',        value: new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) },
+                          { label: 'Currency',    value: t.currenciesCode || 'USD' },
+                          { label: 'Type',        value: typeInfo.label },
+                        ].map(({ label, value }) => (
+                          <div key={label}>
+                            <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: '0.15rem' }}>{label}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#1e1b4b', fontWeight: 600 }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Action buttons */}
+                      {!isTransfer && (
+                        <div style={{ display: 'flex', gap: '0.6rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); openEdit(t); }}
+                            style={{ flex: 1, padding: '0.55rem', borderRadius: 10, border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setDeleteConfirm(t.transactionID); }}
+                            style={{ flex: 1, padding: '0.55rem', borderRadius: 10, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#ef4444', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -320,142 +307,24 @@ function Transactions() {
         </div>
       </div>
 
-      {/* DETAIL MODAL */}
-      {showDetailModal && selectedTransaction && (
-        <div onClick={() => setShowDetailModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 20, width: '100%', maxWidth: 440, overflow: 'hidden' }}>
-            <div style={{ background: TYPE_COLORS[selectedTransaction.status]?.bg || '#f3f4f6', padding: '2rem', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ width: 60, height: 60, borderRadius: 16, background: 'white', margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-                {selectedTransaction.status === 'income' ? (
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                ) : selectedTransaction.status === 'expense' ? (
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                ) : (
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                )}
-              </div>
-              <div style={{ fontSize: '2rem', fontWeight: 900, color: TYPE_COLORS[selectedTransaction.status]?.color }}>
-                {selectedTransaction.status === 'income' ? '+' : selectedTransaction.status === 'expense' ? '-' : ''}${Math.abs(selectedTransaction.amount).toFixed(2)}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem', textTransform: 'capitalize' }}>{selectedTransaction.status}</div>
-            </div>
-            <div style={{ padding: '1.5rem' }}>
-              {[
-                { label: 'Category', value: getCategoryPath(selectedTransaction.categoryID) || 'Uncategorized' },
-                { label: 'Description', value: selectedTransaction.description || '—' },
-                { label: 'Date', value: new Date(selectedTransaction.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) },
-                { label: 'Time', value: new Date(selectedTransaction.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) },
-                { label: 'Currency', value: selectedTransaction.currenciesCode || 'USD' },
-              ].map((row, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '0.75rem 0', borderBottom: i < 4 ? '1px solid #f3f4f6' : 'none' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: 500 }}>{row.label}</span>
-                  <span style={{ fontSize: '0.85rem', color: '#1e1b4b', fontWeight: 600, textAlign: 'right', maxWidth: '60%' }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: '0 1.5rem 1.5rem' }}>
-              <button onClick={() => setShowDetailModal(false)} style={{ width: '100%', padding: '0.8rem', borderRadius: 12, border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, cursor: 'pointer' }}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ADD MODAL */}
-      {showAddModal && (
-        <div onClick={() => setShowAddModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ margin: '0 0 1.5rem', color: '#1e1b4b', fontWeight: 800 }}>New Transaction</h3>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>Type</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {['income', 'expense', 'transfer'].map(type => (
-                  <button key={type} onClick={() => setFormData({ ...formData, status: type, categoryID: '' })}
-                    style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: `2px solid ${formData.status === type ? TYPE_COLORS[type].color : '#e5e7eb'}`, background: formData.status === type ? TYPE_COLORS[type].bg : 'white', color: formData.status === type ? TYPE_COLORS[type].color : '#6b7280', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer', textTransform: 'capitalize' }}>
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>Amount</label>
-              <input type="number" placeholder="0.00" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} style={inputStyle} />
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>{formData.status === 'transfer' ? 'From Account' : 'Account'}</label>
-              {accounts.length === 0 ? (
-                <div style={{ background: '#fef3c7', border: '1.5px solid #fcd34d', borderRadius: 10, padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#92400e', fontWeight: 500 }}>
-                  ⚠️ No accounts found.{' '}
-                  <span onClick={() => { setShowAddModal(false); window.location.href = '/accounts'; }} style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Create an account first →</span>
-                </div>
-              ) : (
-                <select value={formData.accountID} onChange={e => setFormData({ ...formData, accountID: e.target.value })} style={inputStyle}>
-                  <option value="">Select account...</option>
-                  {accounts.filter(a => formData.status === 'transfer' ? a.accountType !== 'savings' : true).map(a => (
-                    <option key={a.accountID} value={a.accountID}>{a.name} — ${a.balance.toFixed(2)}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {formData.status === 'transfer' && (
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>To Account</label>
-                <select value={formData.toAccountID} onChange={e => setFormData({ ...formData, toAccountID: e.target.value })} style={inputStyle}>
-                  <option value="">Select destination...</option>
-                  {accounts.filter(a => a.accountID !== parseInt(formData.accountID) && a.accountType !== 'savings').map(a => (
-                    <option key={a.accountID} value={a.accountID}>{a.name} — ${a.balance.toFixed(2)}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {formData.status !== 'transfer' && (
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>
-                  Category
-                  {selectedCategoryName && <span style={{ color: '#7c3aed', marginLeft: '0.5rem', fontWeight: 400, fontSize: '0.8rem' }}>✓ {selectedCategoryName}</span>}
-                </label>
-                <CategoryPicker
-                  categories={categories}
-                  transType={formData.status}
-                  selectedID={formData.categoryID ? parseInt(formData.categoryID) : null}
-                  onSelect={(cat) => {
-                    setFormData({ ...formData, categoryID: cat.categoryID.toString() });
-                    setSelectedCategoryName(cat.name);
-                    getCategories().then(setCategories).catch(() => {});
-                  }}
-                />
-              </div>
-            )}
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>Description (optional)</label>
-              <input type="text" placeholder="e.g. Salary payment, Grocery run..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} style={inputStyle} />
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={labelStyle}>Date</label>
-              <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} style={inputStyle} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '0.8rem', borderRadius: 12, border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleAdd} disabled={submitting || !formData.amount || !formData.accountID} style={{ flex: 2, padding: '0.8rem', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #1e1b4b, #4c1d95)', color: 'white', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
-                {submitting ? 'Adding...' : 'Add Transaction'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ADD TRANSACTION MODAL */}
+      <TransactionModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={fetchAll}
+        accounts={accounts}
+        categories={categories}
+        initialType="expense"
+      />
 
       {/* EDIT MODAL */}
       {showEditModal && editingTransaction && (
         <div onClick={() => setShowEditModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ margin: '0 0 1.5rem', color: '#1e1b4b', fontWeight: 800 }}>Edit Transaction</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: '#1e1b4b', fontWeight: 800 }}>Edit Transaction</h3>
+              <button onClick={() => setShowEditModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1.4rem', lineHeight: 1, padding: 0 }}>✕</button>
+            </div>
 
             <div style={{ marginBottom: '1rem' }}>
               <label style={labelStyle}>Amount</label>

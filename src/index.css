@@ -19,6 +19,10 @@ a {
   transition: color 0.2s;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 button {
   cursor: pointer;
   transition: opacity 0.2s, transform 0.1s;

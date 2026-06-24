@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getAccounts, createAccount, updateAccount, deleteAccount } from '../services/api';
+import { useState, useEffect, useCallback } from 'react';
+import { getAccounts, createAccount, updateAccount, deleteAccount, getTransactions } from '../services/api';
 import Layout from '../components/Layout';
 
 const ACCOUNT_TYPES = [
@@ -65,6 +65,7 @@ const CURRENCIES = ['USD', 'EUR', 'LBP', 'GBP'];
 
 function Accounts() {
   const [accounts, setAccounts] = useState([]);
+  const [allTransactions, setAllTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -82,22 +83,34 @@ function Accounts() {
     currenciesCode: '',
   });
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAccounts();
-      setAccounts(data);
+      const [accs, txns] = await Promise.all([getAccounts(), getTransactions()]);
+      setAccounts(accs);
+      setAllTransactions(txns);
     } catch (err) {
       setError(err.message || 'Failed to load accounts');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    const load = async () => { await fetchAccounts(); };
-    load();
   }, []);
+
+  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+
+  // Compute an account's real balance from transactions (backend balance field is unreliable)
+  const computeBalance = (accountID) => {
+    const id = String(accountID);
+    return allTransactions.reduce((sum, t) => {
+      const src  = String(t.accountID  ?? t.accountId  ?? '');
+      const dest = String(t.toAccountID ?? t.toAccountId ?? '');
+      if (t.status === 'income'   && src  === id) return sum + Math.abs(t.amount);
+      if (t.status === 'expense'  && src  === id) return sum - Math.abs(t.amount);
+      if (t.status === 'transfer' && src  === id) return sum - Math.abs(t.amount);
+      if (t.status === 'transfer' && dest === id) return sum + Math.abs(t.amount);
+      return sum;
+    }, 0);
+  };
 
   const handleAdd = async () => {
     if (!formData.name.trim()) return alert('Please enter an account name');
@@ -145,7 +158,7 @@ function Accounts() {
     setShowEditModal(true);
   };
 
-  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const totalBalance = accounts.reduce((sum, a) => sum + computeBalance(a.accountID), 0);
 
   const inputStyle = {
     width: '100%',
@@ -228,8 +241,8 @@ function Accounts() {
           <div style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: 2, marginBottom: '0.4rem' }}>
             Total Balance
           </div>
-          <div style={{ fontSize: '2.8rem', fontWeight: 900, letterSpacing: '-1px' }}>
-            ${totalBalance.toFixed(2)}
+          <div style={{ fontSize: '2.8rem', fontWeight: 900, letterSpacing: '-1px', color: totalBalance < 0 ? '#fca5a5' : 'white' }}>
+            {totalBalance < 0 ? '-' : ''}${Math.abs(totalBalance).toFixed(2)}
           </div>
           <div style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: '0.25rem' }}>
             Across {accounts.length} account{accounts.length !== 1 ? 's' : ''}
@@ -366,9 +379,14 @@ function Accounts() {
                       <div style={{ fontSize: '0.7rem', color: typeInfo.color, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.2rem' }}>
                         Balance
                       </div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: typeInfo.color }}>
-                        ${account.balance.toFixed(2)}
-                      </div>
+                      {(() => {
+                        const bal = computeBalance(account.accountID);
+                        return (
+                          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: bal < 0 ? '#ef4444' : typeInfo.color }}>
+                            {bal < 0 ? '-' : ''}${Math.abs(bal).toFixed(2)}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Actions */}
