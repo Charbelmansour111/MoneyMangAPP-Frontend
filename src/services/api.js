@@ -86,3 +86,13 @@ export const deleteTransaction = (id) =>
 
 export const getDashboardSummary = (months = 6, month = 0, year = 0) =>
   apiFetch(`/Dashboard/summary?months=${months}&month=${month + 1}&year=${year}`, { method: 'GET' });
+
+// ===== SUBCATEGORY =====
+export const getSubCategories = (categoryId) =>
+  apiFetch(`/SubCategory/byCategory/${categoryId}`, { method: 'GET' });
+
+export const createSubCategory = (data) =>
+  apiFetch('/SubCategory', { method: 'POST', body: JSON.stringify(data) });
+
+export const deleteSubCategory = (id) =>
+  apiFetch(`/SubCategory/${id}`, { method: 'DELETE' });

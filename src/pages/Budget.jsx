@@ -89,36 +89,18 @@ function Budget() {
       start = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    // Normalize to string to avoid number vs string type mismatch across endpoints
     const budgetCatID = String(budget.categoryID);
 
-    const relatedCategoryIDs = new Set(
-      categories
-        .filter(c => {
-          const cID = String(c.categoryID);
-          const pID = c.parentID != null ? String(c.parentID) : null;
-          return (
-            cID === budgetCatID ||
-            pID === budgetCatID ||
-            categories.some(p => String(p.categoryID) === pID && String(p.parentID) === budgetCatID)
-          );
-        })
-        .map(c => String(c.categoryID))
-    );
-
     return transactions
-      .filter(t => {
-        const tDate = new Date(t.date);
-        // Handle both categoryID and categoryId (ASP.NET Core camelCase variants)
-        const rawCatID = t.categoryID ?? t.categoryId;
-        const tCatID = rawCatID != null ? String(rawCatID) : null;
-        const matchCat = tCatID != null && relatedCategoryIDs.has(tCatID);
-        const matchDate = tDate >= start;
-        const isExpense = t.status === 'expense';
-        return matchCat && matchDate && isExpense;
-      })
+      .filter(t =>
+        t.categoryID != null &&
+        String(t.categoryID) === budgetCatID &&
+        new Date(t.date) >= start &&
+        t.status === 'expense'
+      )
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   };
+  
   const getCategoryName = (categoryID) => {
     const cat = categories.find(c => c.categoryID === categoryID);
     return cat ? cat.name : 'Unknown';

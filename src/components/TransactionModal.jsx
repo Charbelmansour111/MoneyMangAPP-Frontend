@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createTransaction, getAccounts, getCategories } from '../services/api';
+import { createTransaction, getAccounts } from '../services/api';
 import CategoryPicker from './CategoryPicker';
 
 const TYPE_COLORS = {
@@ -28,24 +28,23 @@ const labelStyle = {
   marginBottom: '0.4rem',
 };
 
+function emptyForm() {
+  return {
+    amount: '', currenciesCode: 'USD', description: '',
+    date: new Date().toISOString().split('T')[0],
+    accountID: '', categoryID: '', subCategoryID: null, toAccountID: '',
+  };
+}
+
 function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, categories: propCategories, initialType = 'expense' }) {
-  const [transType, setTransType]           = useState(initialType);
-  const [accounts, setAccounts]             = useState(propAccounts || []);
-  const [categories, setCategories]         = useState(propCategories || []);
-  const [formData, setFormData]             = useState(emptyForm());
-  const [formErrors, setFormErrors]         = useState({});
+  const [transType, setTransType]             = useState(initialType);
+  const [accounts, setAccounts]               = useState(propAccounts || []);
+  const [categories, setCategories]           = useState(propCategories || []);
+  const [formData, setFormData]               = useState(emptyForm());
+  const [formErrors, setFormErrors]           = useState({});
   const [selectedCategoryName, setSelCatName] = useState('');
-  const [submitting, setSubmitting]         = useState(false);
+  const [submitting, setSubmitting]           = useState(false);
 
-  function emptyForm() {
-    return {
-      amount: '', currenciesCode: 'USD', description: '',
-      date: new Date().toISOString().split('T')[0],
-      accountID: '', categoryID: '', toAccountID: '',
-    };
-  }
-
-  // Reset form and refresh accounts each time the modal opens
   useEffect(() => {
     if (!isOpen) return;
     setTransType(initialType);
@@ -55,7 +54,6 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
     getAccounts().then(setAccounts).catch(() => {});
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep local copies in sync if parent re-fetches
   useEffect(() => { if (propAccounts) setAccounts(propAccounts); }, [propAccounts]);
   useEffect(() => { if (propCategories) setCategories(propCategories); }, [propCategories]);
 
@@ -64,7 +62,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
 
   const handleTypeChange = (type) => {
     setTransType(type);
-    setFormData(prev => ({ ...prev, categoryID: '', toAccountID: '' }));
+    setFormData(prev => ({ ...prev, categoryID: '', subCategoryID: null, toAccountID: '' }));
     setSelCatName('');
   };
 
@@ -94,6 +92,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
     setFormErrors({});
     setSubmitting(true);
 
+    console.log('formData before submit:', formData);
+
     try {
       await createTransaction({
         ...formData,
@@ -101,6 +101,7 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
         amount: amt,
         accountID: parseInt(formData.accountID),
         categoryID: formData.categoryID ? parseInt(formData.categoryID) : null,
+        subCategoryID: formData.subCategoryID ? parseInt(formData.subCategoryID) : null,
         toAccountID: formData.toAccountID ? parseInt(formData.toAccountID) : null,
         date: new Date(formData.date).toISOString(),
       });
@@ -119,7 +120,6 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
   if (!isOpen) return null;
 
   const amt = parseFloat(formData.amount) || 0;
-  const tc  = TYPE_COLORS[transType];
 
   return (
     <div
@@ -240,9 +240,12 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
               transType={transType}
               selectedID={formData.categoryID ? parseInt(formData.categoryID) : null}
               onSelect={(cat) => {
-                setFormData(p => ({ ...p, categoryID: cat.categoryID.toString() }));
+                setFormData(p => ({
+                  ...p,
+                  categoryID: cat.categoryID.toString(),
+                  subCategoryID: cat.subCategoryID || null
+                }));
                 setSelCatName(cat.name);
-                getCategories().then(setCategories).catch(() => {});
               }}
             />
           </div>

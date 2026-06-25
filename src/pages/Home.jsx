@@ -4,7 +4,6 @@ import Layout from '../components/Layout';
 import TrendChart from '../components/TrendChart';
 import ExpensePieChart from '../components/ExpensePieChart';
 import TransactionModal from '../components/TransactionModal';
-import { getCategoryIcon } from '../utils/categoryIcons';
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -32,20 +31,15 @@ const ACTION_BUTTONS = [
   },
 ];
 
-// Icon shown next to a transaction: category emoji or type arrow
-function TxIcon({ t, categories, size = 42 }) {
-  const tc    = TYPE_COLORS[t.status] || TYPE_COLORS.income;
-  const catID = t.categoryID ?? t.categoryId;
-  const emoji = catID ? getCategoryIcon(categories, catID) : null;
+function TxIcon({ t, size = 42 }) {
+  const tc = TYPE_COLORS[t.status] || TYPE_COLORS.income;
   return (
-    <div style={{ width: size, height: size, borderRadius: 12, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: emoji ? '1.2rem' : undefined }}>
-      {emoji
-        ? emoji
-        : t.status === 'income'
-          ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-          : t.status === 'expense'
-            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    <div style={{ width: size, height: size, borderRadius: 12, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {t.status === 'income'
+        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        : t.status === 'expense'
+          ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
       }
     </div>
   );
@@ -73,6 +67,7 @@ function Home() {
 
   // Fetch everything once on mount; month navigation is pure client-side
   const fetchAll = async () => {
+    setLoading(true);
     try {
       const [txns, accs, cats] = await Promise.all([
         getTransactions(),
@@ -84,13 +79,13 @@ function Home() {
       setCategories(cats);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    setLoading(true);
-    fetchAll().finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchAll(); }, []);
 
   const handleModalSuccess = async () => {
     const [txns, accs] = await Promise.all([getTransactions(), getAccounts()]);
@@ -130,49 +125,42 @@ function Home() {
   );
 
   const expensesByCategory = useMemo(() => {
-    const map = {};
-    monthTxns.filter(t => t.status === 'expense').forEach(t => {
-      const catID = t.categoryID ?? t.categoryId;
-      if (!catID) return;
-      const cat = categories.find(c => String(c.categoryID) === String(catID));
-      if (!cat) return;
-      let root = cat;
-      const seen = new Set();
-      while (root.parentID != null) {
-        if (seen.has(root.categoryID)) break;
-        seen.add(root.categoryID);
-        const p = categories.find(c => String(c.categoryID) === String(root.parentID));
-        if (!p) break;
-        root = p;
-      }
-      map[root.name] = (map[root.name] || 0) + Math.abs(t.amount);
-    });
-    const total = Object.values(map).reduce((s, v) => s + v, 0);
-    return Object.entries(map)
-      .map(([categoryName, amount]) => ({ categoryName, amount, percentage: total > 0 ? Math.round((amount / total) * 100) : 0 }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [monthTxns, categories]);
+  const map = {};
+  monthTxns.filter(t => t.status === 'expense').forEach(t => {
+    if (!t.categoryName) return;
+    map[t.categoryName] = (map[t.categoryName] || 0) + Math.abs(t.amount);
+  });
+  const total = Object.values(map).reduce((s, v) => s + v, 0);
+  return Object.entries(map)
+    .map(([categoryName, amount]) => ({
+      categoryName,
+      amount,
+      percentage: total > 0 ? Math.round((amount / total) * 100) : 0
+    }))
+    .sort((a, b) => b.amount - a.amount);
+}, [monthTxns]);
 
   // Trend is always anchored to "today", independent of the selected month
-  const nowYear  = now.getFullYear();
-  const nowMonth = now.getMonth();
-  const monthlyTrend = useMemo(() => (
-    Array.from({ length: trendMonths }, (_, i) => {
-      const date  = new Date(nowYear, nowMonth - (trendMonths - 1 - i), 1);
-      const m     = date.getMonth();
-      const y     = date.getFullYear();
-      const txns  = allTransactions.filter(t => { const d = new Date(t.date); return d.getMonth() === m && d.getFullYear() === y; });
-      const inc   = txns.filter(t => t.status === 'income').reduce((s, t) => s + Math.abs(t.amount), 0);
-      const exp   = txns.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+  const monthlyTrend = useMemo(() => {
+    const today    = new Date();
+    const todayY   = today.getFullYear();
+    const todayM   = today.getMonth();
+    return Array.from({ length: trendMonths }, (_, i) => {
+      const date = new Date(todayY, todayM - (trendMonths - 1 - i), 1);
+      const m    = date.getMonth();
+      const y    = date.getFullYear();
+      const txns = allTransactions.filter(t => { const d = new Date(t.date); return d.getMonth() === m && d.getFullYear() === y; });
+      const inc  = txns.filter(t => t.status === 'income').reduce((s, t) => s + Math.abs(t.amount), 0);
+      const exp  = txns.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
       return { month: date.toLocaleString('default', { month: 'short' }), income: inc, expenses: exp, balance: inc - exp };
-    })
-  ), [allTransactions, trendMonths, nowYear, nowMonth]);
+    });
+  }, [allTransactions, trendMonths]);
 
-  const getCatName = (catID) => {
-    if (!catID) return null;
-    const cat = categories.find(c => String(c.categoryID) === String(catID));
-    return cat?.name || null;
-  };
+  const getCatName = (t) => {
+  if (t.subCategoryName) return `${t.categoryName} › ${t.subCategoryName}`;
+  if (t.categoryName) return t.categoryName;
+  return null;
+};
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -282,14 +270,13 @@ function Home() {
           ) : (
             recentTransactions.map((t, i) => {
               const tc      = TYPE_COLORS[t.status] || TYPE_COLORS.income;
-              const catID   = t.categoryID ?? t.categoryId;
-              const catName = getCatName(catID);
+              const catName = getCatName(t);
               const title   = catName || t.description || t.status;
               const sub     = t.description && catName && t.description !== catName ? t.description : null;
               return (
                 <div key={t.transactionID} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: i < recentTransactions.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <TxIcon t={t} categories={categories} />
+                    <TxIcon t={t} />
                     <div>
                       <div style={{ fontWeight: 600, color: '#1e1b4b', fontSize: '0.9rem' }}>{title}</div>
                       <div style={{ color: '#9ca3af', fontSize: '0.75rem' }}>{sub ? `${sub} • ` : ''}{new Date(t.date).toLocaleDateString()}</div>
@@ -321,16 +308,14 @@ function Home() {
           ) : (
             <>
               {monthIncomeList.map((item, i) => {
-                const catID   = item.categoryID ?? item.categoryId;
-                const emoji   = catID ? getCategoryIcon(categories, catID) : null;
-                const catName = getCatName(catID);
+                const catName = getCatName(item);
                 const title   = catName || item.description || 'Income';
                 const sub     = item.description && catName && item.description !== catName ? item.description : null;
                 return (
                   <div key={item.transactionID} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: i < monthIncomeList.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: emoji ? '1.2rem' : undefined }}>
-                        {emoji ?? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>}
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                       </div>
                       <div>
                         <div style={{ fontWeight: 600, color: '#1e1b4b', fontSize: '0.9rem' }}>{title}</div>

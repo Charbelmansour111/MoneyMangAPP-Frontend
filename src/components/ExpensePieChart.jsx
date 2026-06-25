@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const PIE_COLORS = ['#7c3aed', '#a78bfa', '#4c1d95', '#ddd6fe', '#6d28d9', '#c4b5fd'];
+const PIE_COLORS = ['#7c3aed', '#ef4444', '#059669', '#f59e0b', '#3b82f6', '#ec4899', '#14b8a6', '#f97316'];
 
 function ExpensePieChart({ data }) {
   if (!data || data.length === 0) {

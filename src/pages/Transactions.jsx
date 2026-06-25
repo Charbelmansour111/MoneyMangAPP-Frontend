@@ -3,7 +3,6 @@ import { getTransactions, getAccounts, getCategories, deleteTransaction, updateT
 import Layout from '../components/Layout';
 import CategoryPicker from '../components/CategoryPicker';
 import TransactionModal from '../components/TransactionModal';
-import { getCategoryIcon } from '../utils/categoryIcons';
 
 const TYPE_COLORS = {
   income:   { color: '#059669', bg: '#ecfdf5', label: 'Income' },
@@ -12,12 +11,11 @@ const TYPE_COLORS = {
 };
 
 // Icon block for a transaction row
-function TxIcon({ t, categories, size = 44 }) {
+function TxIcon({ t, size = 44 }) {
   const tc = TYPE_COLORS[t.status] || TYPE_COLORS.income;
-  const emoji = getCategoryIcon(categories, t.categoryID ?? t.categoryId);
   return (
-    <div style={{ width: size, height: size, borderRadius: 12, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: emoji ? '1.25rem' : undefined }}>
-      {emoji ? emoji : t.status === 'income' ? (
+    <div style={{ width: size, height: size, borderRadius: 12, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {t.status === 'income' ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
       ) : t.status === 'expense' ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
@@ -58,6 +56,7 @@ function Transactions() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchAll(); }, []);
 
   const handleEdit = async () => {
@@ -102,26 +101,18 @@ function Transactions() {
     setShowEditModal(true);
   };
 
-  const getCategoryPath = (categoryID) => {
-    if (!categoryID) return null;
-    const id = String(categoryID);
-    const cat = categories.find(c => String(c.categoryID) === id);
-    if (!cat) return null;
-    if (!cat.parentID) return cat.name;
-    const parent = categories.find(c => String(c.categoryID) === String(cat.parentID));
-    if (!parent) return cat.name;
-    if (!parent.parentID) return `${parent.name} › ${cat.name}`;
-    const grandparent = categories.find(c => String(c.categoryID) === String(parent.parentID));
-    return grandparent ? `${grandparent.name} › ${parent.name} › ${cat.name}` : `${parent.name} › ${cat.name}`;
-  };
-
+  const getCategoryPath = (t) => {
+  if (t.subCategoryName) return `${t.categoryName} › ${t.subCategoryName}`;
+  if (t.categoryName) return t.categoryName;
+  return null;
+};
   const filtered = transactions
     .filter(t => filter === 'all' || t.status === filter)
     .filter(t => {
       if (!search) return true;
       const q = search.toLowerCase();
       return (t.description || '').toLowerCase().includes(q)
-        || (getCategoryPath(t.categoryID ?? t.categoryId) || '').toLowerCase().includes(q);
+        || (getCategoryPath(t) || '').toLowerCase().includes(q);
     });
 
   const totalIncome   = transactions.filter(t => t.status === 'income').reduce((s, t) => s + t.amount, 0);
@@ -219,8 +210,7 @@ function Transactions() {
             filtered.map((t, i) => {
               const typeInfo    = TYPE_COLORS[t.status] || TYPE_COLORS.income;
               const isTransfer  = t.status === 'transfer';
-              const catID       = t.categoryID ?? t.categoryId;
-              const categoryPath = getCategoryPath(catID);
+              const categoryPath = getCategoryPath(t);
               const isExpanded  = expandedID === t.transactionID;
               const isLast      = i === filtered.length - 1;
 
@@ -235,7 +225,7 @@ function Transactions() {
                   >
                     {/* Left: icon + title */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                      <TxIcon t={t} categories={categories} />
+                      <TxIcon t={t} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600, color: '#1e1b4b', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {categoryPath || t.description || typeInfo.label}
