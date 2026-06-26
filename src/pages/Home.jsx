@@ -103,13 +103,13 @@ function Home() {
     return inc - exp;
   }, [allTransactions]);
 
-  const monthTxns = useMemo(
-    () => allTransactions.filter(t => {
-      const d = new Date(t.date);
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
-    }),
-    [allTransactions, selectedMonth, selectedYear],
-  );
+ const monthTxns = useMemo(
+  () => allTransactions.filter(t => {
+    const d = new Date(t.date);
+    return d.getUTCMonth() === selectedMonth && d.getUTCFullYear() === selectedYear;
+  }),
+  [allTransactions, selectedMonth, selectedYear],
+);
 
   const monthIncome   = useMemo(() => monthTxns.filter(t => t.status === 'income').reduce((s, t) => s + Math.abs(t.amount), 0), [monthTxns]);
   const monthExpenses = useMemo(() => monthTxns.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0), [monthTxns]);
@@ -140,21 +140,23 @@ function Home() {
     .sort((a, b) => b.amount - a.amount);
 }, [monthTxns]);
 
-  // Trend is always anchored to "today", independent of the selected month
   const monthlyTrend = useMemo(() => {
-    const today    = new Date();
-    const todayY   = today.getFullYear();
-    const todayM   = today.getMonth();
-    return Array.from({ length: trendMonths }, (_, i) => {
-      const date = new Date(todayY, todayM - (trendMonths - 1 - i), 1);
-      const m    = date.getMonth();
-      const y    = date.getFullYear();
-      const txns = allTransactions.filter(t => { const d = new Date(t.date); return d.getMonth() === m && d.getFullYear() === y; });
-      const inc  = txns.filter(t => t.status === 'income').reduce((s, t) => s + Math.abs(t.amount), 0);
-      const exp  = txns.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
-      return { month: date.toLocaleString('default', { month: 'short' }), income: inc, expenses: exp, balance: inc - exp };
+  const today  = new Date();
+  const todayY = today.getFullYear();
+  const todayM = today.getMonth();
+  return Array.from({ length: trendMonths }, (_, i) => {
+    const date = new Date(todayY, todayM - (trendMonths - 1 - i), 1);
+    const m    = date.getMonth();
+    const y    = date.getFullYear();
+    const txns = allTransactions.filter(t => {
+      const d = new Date(t.date);
+      return d.getUTCMonth() === m && d.getUTCFullYear() === y; // ← UTC
     });
-  }, [allTransactions, trendMonths]);
+    const inc = txns.filter(t => t.status === 'income').reduce((s, t) => s + Math.abs(t.amount), 0);
+    const exp = txns.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+    return { month: date.toLocaleString('default', { month: 'short' }), income: inc, expenses: exp, balance: inc - exp };
+  });
+}, [allTransactions, trendMonths]);
 
   const getCatName = (t) => {
   if (t.subCategoryName) return `${t.categoryName} › ${t.subCategoryName}`;

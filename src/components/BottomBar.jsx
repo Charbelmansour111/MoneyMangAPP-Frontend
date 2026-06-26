@@ -44,19 +44,6 @@ const navItems = [
 },
 
   {
-    path: '/budget',
-    label: 'Budget',
-    icon: (active) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke={active ? '#7c3aed' : '#9ca3af'}
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 20h20"/>
-        <path d="M5 20V10l7-7 7 7v10"/>
-        <path d="M9 20v-5h6v5"/>
-      </svg>
-    )
-  },
-  {
     path: '/savings',
     label: 'Savings',
     icon: (active) => (

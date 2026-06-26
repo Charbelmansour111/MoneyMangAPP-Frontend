@@ -1,32 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createTransaction, getAccounts } from '../services/api';
 import CategoryPicker from './CategoryPicker';
-
-const TYPE_COLORS = {
-  income:   { color: '#059669', bg: '#ecfdf5', border: '#d1fae5' },
-  expense:  { color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
-  transfer: { color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-};
-
-const inputStyle = {
-  width: '100%',
-  border: '1.5px solid #e5e7eb',
-  borderRadius: 10,
-  padding: '0.7rem 1rem',
-  fontSize: '0.9rem',
-  background: 'white',
-  color: '#1e1b4b',
-  outline: 'none',
-  boxSizing: 'border-box',
-};
-
-const labelStyle = {
-  display: 'block',
-  fontWeight: 600,
-  color: '#374151',
-  fontSize: '0.85rem',
-  marginBottom: '0.4rem',
-};
+import { TYPE_COLORS, inputStyle, labelStyle } from '../utils/constants';
 
 function emptyForm() {
   return {
@@ -44,6 +19,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
   const [formErrors, setFormErrors]           = useState({});
   const [selectedCategoryName, setSelCatName] = useState('');
   const [submitting, setSubmitting]           = useState(false);
+
+
 
   useEffect(() => {
     if (!isOpen) return;
@@ -171,60 +148,59 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
           />
           {formErrors.amount && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.amount}</div>}
         </div>
+{/* Account */}
+<div style={{ marginBottom: '1rem' }}>
+  <label style={labelStyle}>{transType === 'transfer' ? 'From Account' : 'Account'}</label>
+  {accounts.filter(a => a.accountType !== 'savings').length === 0 ? (
+    <div style={{ background: '#fef3c7', border: '1.5px solid #fcd34d', borderRadius: 10, padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#92400e', fontWeight: 500 }}>
+      ⚠️ No accounts found.{' '}
+      <span onClick={() => { onClose(); window.location.href = '/accounts'; }} style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
+        Create an account first →
+      </span>
+    </div>
+  ) : (
+    <select
+      value={formData.accountID}
+      onChange={e => { setFormData(p => ({ ...p, accountID: e.target.value })); clearErr('accountID'); }}
+      style={{ ...inputStyle, borderColor: formErrors.accountID ? '#ef4444' : '#e5e7eb' }}
+    >
+      <option value="">Select account...</option>
+      {accounts
+        .filter(a => a.accountType !== 'savings')
+        .map(a => {
+          const insufficient = transType !== 'income' && amt > 0 && a.balance < amt;
+          return (
+            <option key={a.accountID} value={a.accountID} disabled={insufficient}>
+              {a.name} — ${a.balance.toFixed(2)}{insufficient ? ' (insufficient funds)' : ''}
+            </option>
+          );
+        })
+      }
+    </select>
+  )}
+  {formErrors.accountID && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.accountID}</div>}
+</div>
 
-        {/* Account */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>{transType === 'transfer' ? 'From Account' : 'Account'}</label>
-          {accounts.length === 0 ? (
-            <div style={{ background: '#fef3c7', border: '1.5px solid #fcd34d', borderRadius: 10, padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#92400e', fontWeight: 500 }}>
-              ⚠️ No accounts found.{' '}
-              <span onClick={() => { onClose(); window.location.href = '/accounts'; }} style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                Create an account first →
-              </span>
-            </div>
-          ) : (
-            <select
-              value={formData.accountID}
-              onChange={e => { setFormData(p => ({ ...p, accountID: e.target.value })); clearErr('accountID'); }}
-              style={{ ...inputStyle, borderColor: formErrors.accountID ? '#ef4444' : '#e5e7eb' }}
-            >
-              <option value="">Select account...</option>
-              {accounts
-                .filter(a => transType === 'transfer' ? a.accountType !== 'savings' : true)
-                .map(a => {
-                  const insufficient = transType !== 'income' && amt > 0 && a.balance < amt;
-                  return (
-                    <option key={a.accountID} value={a.accountID} disabled={insufficient}>
-                      {a.name} — ${a.balance.toFixed(2)}{insufficient ? ' (insufficient funds)' : ''}
-                    </option>
-                  );
-                })
-              }
-            </select>
-          )}
-          {formErrors.accountID && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.accountID}</div>}
-        </div>
-
-        {/* To Account (transfer only) */}
-        {transType === 'transfer' && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={labelStyle}>To Account</label>
-            <select
-              value={formData.toAccountID}
-              onChange={e => { setFormData(p => ({ ...p, toAccountID: e.target.value })); clearErr('toAccountID'); }}
-              style={{ ...inputStyle, borderColor: formErrors.toAccountID ? '#ef4444' : '#e5e7eb' }}
-            >
-              <option value="">Select destination...</option>
-              {accounts
-                .filter(a => a.accountID !== parseInt(formData.accountID) && a.accountType !== 'savings')
-                .map(a => (
-                  <option key={a.accountID} value={a.accountID}>{a.name} — ${a.balance.toFixed(2)}</option>
-                ))
-              }
-            </select>
-            {formErrors.toAccountID && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.toAccountID}</div>}
-          </div>
-        )}
+{/* To Account (transfer only) */}
+{transType === 'transfer' && (
+  <div style={{ marginBottom: '1rem' }}>
+    <label style={labelStyle}>To Account</label>
+    <select
+      value={formData.toAccountID}
+      onChange={e => { setFormData(p => ({ ...p, toAccountID: e.target.value })); clearErr('toAccountID'); }}
+      style={{ ...inputStyle, borderColor: formErrors.toAccountID ? '#ef4444' : '#e5e7eb' }}
+    >
+      <option value="">Select destination...</option>
+      {accounts
+        .filter(a => a.accountID !== parseInt(formData.accountID) && a.accountType !== 'savings')
+        .map(a => (
+          <option key={a.accountID} value={a.accountID}>{a.name} — ${a.balance.toFixed(2)}</option>
+        ))
+      }
+    </select>
+    {formErrors.toAccountID && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.toAccountID}</div>}
+  </div>
+)}
 
         {/* Category */}
         {transType !== 'transfer' && (

@@ -2,11 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
+import Accounts from './pages/Accounts';
 import Transactions from './pages/Transactions';
 import Budget from './pages/Budget';
 import Savings from './pages/Savings';
 import Reports from './pages/Reports';
-import Accounts from './pages/Accounts';
+
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');

@@ -3,12 +3,8 @@ import { getTransactions, getAccounts, getCategories, deleteTransaction, updateT
 import Layout from '../components/Layout';
 import CategoryPicker from '../components/CategoryPicker';
 import TransactionModal from '../components/TransactionModal';
+import { TYPE_COLORS, inputStyle, labelStyle } from '../utils/constants';
 
-const TYPE_COLORS = {
-  income:   { color: '#059669', bg: '#ecfdf5', label: 'Income' },
-  expense:  { color: '#ef4444', bg: '#fef2f2', label: 'Expense' },
-  transfer: { color: '#7c3aed', bg: '#f5f3ff', label: 'Transfer' },
-};
 
 // Icon block for a transaction row
 function TxIcon({ t, size = 44 }) {
@@ -41,6 +37,7 @@ function Transactions() {
   const [deleteConfirm, setDeleteConfirm]   = useState(null);
   const [editData, setEditData]         = useState({ categoryID: '', amount: '', description: '', date: '' });
   const [submitting, setSubmitting]     = useState(false);
+
 
   const fetchAll = async () => {
     setLoading(true);
@@ -119,8 +116,6 @@ function Transactions() {
   const totalExpenses = transactions.filter(t => t.status === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
   const balance       = totalIncome - totalExpenses;
 
-  const inputStyle = { width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.9rem', background: 'white', color: '#1e1b4b', outline: 'none', boxSizing: 'border-box' };
-  const labelStyle = { display: 'block', fontWeight: 600, color: '#374151', fontSize: '0.85rem', marginBottom: '0.4rem' };
 
   if (loading) return (
     <Layout>

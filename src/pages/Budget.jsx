@@ -1,28 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getCategories } from '../services/api';
+import { getCategories, getTransactions, getBudgets, createBudget, updateBudget, deleteBudget } from '../services/api';
 import Layout from '../components/Layout';
-
-const API_URL = 'http://localhost:5189/api';
-
-const apiFetch = (path, options = {}) => {
-  const token = localStorage.getItem('token');
-  return fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  }).then(async res => {
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-  });
-};
-
-const getBudgets = () => apiFetch('/Budget', { method: 'GET' });
-const createBudget = (data) => apiFetch('/Budget', { method: 'POST', body: JSON.stringify(data) });
-const updateBudget = (id, data) => apiFetch(`/Budget/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-const deleteBudget = (id) => apiFetch(`/Budget/${id}`, { method: 'DELETE' });
+import { inputStyle, labelStyle } from '../utils/constants';
 
 const PERIOD_COLORS = {
   monthly: { color: '#7c3aed', bg: '#f5f3ff', label: 'Monthly' },
@@ -59,7 +38,7 @@ function Budget() {
       const [budgetData, catData, txData] = await Promise.all([
         getBudgets(),
         getCategories(),
-        apiFetch('/Transaction', { method: 'GET' }),
+        getTransactions(),
       ]);
       setBudgets(budgetData);
       setCategories(catData);
@@ -169,26 +148,6 @@ function Budget() {
 
   const resetForm = () => {
     setFormData({ categoryID: '', amount: '', period: 'monthly', description: '' });
-  };
-
-  const inputStyle = {
-    width: '100%',
-    border: '1.5px solid #e5e7eb',
-    borderRadius: 10,
-    padding: '0.7rem 1rem',
-    fontSize: '0.9rem',
-    background: 'white',
-    color: '#1e1b4b',
-    outline: 'none',
-    boxSizing: 'border-box',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontWeight: 600,
-    color: '#374151',
-    fontSize: '0.85rem',
-    marginBottom: '0.4rem',
   };
 
   if (loading) return (
@@ -348,8 +307,7 @@ function Budget() {
               <label style={labelStyle}>Category</label>
               <select value={formData.categoryID} onChange={e => setFormData({ ...formData, categoryID: e.target.value })} style={inputStyle}>
                 <option value="">Select category...</option>
-                {categories.filter(c => c.categoryType === 'expense' && !c.parentID).map(c => (
-                  <option key={c.categoryID} value={c.categoryID}>{c.name}</option>
+                 {categories.filter(c => c.categoryType === 'expense').map(c => (                  <option key={c.categoryID} value={c.categoryID}>{c.name}</option>
                 ))}
               </select>
             </div>

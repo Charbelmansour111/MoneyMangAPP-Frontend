@@ -45,6 +45,7 @@ export const login = (data) =>
 export const getProfile = () =>
   apiFetch('/User/profile', { method: 'GET' });
 
+
 // ===== ACCOUNT =====
 export const getAccounts = () =>
   apiFetch('/Account', { method: 'GET' });
@@ -87,6 +88,7 @@ export const deleteTransaction = (id) =>
 export const getDashboardSummary = (months = 6, month = 0, year = 0) =>
   apiFetch(`/Dashboard/summary?months=${months}&month=${month + 1}&year=${year}`, { method: 'GET' });
 
+
 // ===== SUBCATEGORY =====
 export const getSubCategories = (categoryId) =>
   apiFetch(`/SubCategory/byCategory/${categoryId}`, { method: 'GET' });
@@ -96,3 +98,47 @@ export const createSubCategory = (data) =>
 
 export const deleteSubCategory = (id) =>
   apiFetch(`/SubCategory/${id}`, { method: 'DELETE' });
+
+
+// ===== BUDGET =====
+export const getBudgets = () =>
+  apiFetch('/Budget', { method: 'GET' });
+
+export const createBudget = (data) =>
+  apiFetch('/Budget', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateBudget = (id, data) =>
+  apiFetch(`/Budget/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteBudget = (id) =>
+  apiFetch(`/Budget/${id}`, { method: 'DELETE' });
+
+
+
+// ===== SAVINGS =====
+export const getSavings = () =>
+  apiFetch('/Savings', { method: 'GET' });
+
+export const createSavings = (data) =>
+  apiFetch('/Savings', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateSavings = (id, data) =>
+  apiFetch(`/Savings/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteSavings = (id) =>
+  apiFetch(`/Savings/${id}`, { method: 'DELETE' });
+
+export const contributeSavings = (data) =>
+  apiFetch('/Savings/contribute', { method: 'POST', body: JSON.stringify(data) });
+
+export const getSavingsContributions = (id) =>
+  apiFetch(`/Savings/${id}/contributions`, { method: 'GET' });
+
+export const markSavingsComplete = (id) =>
+  apiFetch(`/Savings/${id}/complete`, { method: 'POST' });
+
+export const markContributionPaid = (savingId, contributionId) =>
+  apiFetch(`/Savings/${savingId}/contributions/${contributionId}/pay`, { method: 'POST' });
+
+export const returnAndDeleteSavings = (id, returnAccountId) =>
+  apiFetch(`/Savings/${id}/return?returnAccountId=${returnAccountId}`, { method: 'DELETE' });
