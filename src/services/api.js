@@ -46,6 +46,7 @@ export const getProfile = () =>
   apiFetch('/User/profile', { method: 'GET' });
 
 
+
 // ===== ACCOUNT =====
 export const getAccounts = () =>
   apiFetch('/Account', { method: 'GET' });
@@ -59,6 +60,7 @@ export const updateAccount = (id, data) =>
 export const deleteAccount = (id) =>
   apiFetch(`/Account/${id}`, { method: 'DELETE' });
 
+
 // ===== CATEGORY =====
 export const getCategories = () =>
   apiFetch('/Category', { method: 'GET' });
@@ -71,6 +73,8 @@ export const updateCategory = (id, data) =>
 
 export const deleteCategory = (id) =>
   apiFetch(`/Category/${id}`, { method: 'DELETE' });
+
+
 
 // ===== TRANSACTION =====
 export const getTransactions = () =>
@@ -140,5 +144,5 @@ export const markSavingsComplete = (id) =>
 export const markContributionPaid = (savingId, contributionId) =>
   apiFetch(`/Savings/${savingId}/contributions/${contributionId}/pay`, { method: 'POST' });
 
-export const returnAndDeleteSavings = (id, returnAccountId) =>
-  apiFetch(`/Savings/${id}/return?returnAccountId=${returnAccountId}`, { method: 'DELETE' });
+export const returnAndDeleteSavings = (id, returnAccountId, exchangeRate = null) =>
+  apiFetch(`/Savings/${id}/return?returnAccountId=${returnAccountId}${exchangeRate ? `&exchangeRate=${exchangeRate}` : ''}`, { method: 'DELETE' });

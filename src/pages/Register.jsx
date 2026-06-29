@@ -1,23 +1,51 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Form, FormGroup, Label, Input, Button, Alert, Spinner } from 'reactstrap';
 import { register } from '../services/api';
 import Footer from '../components/Footer';
 
+const FEATURES = [
+  { icon: '📊', color: '#7c3aed', bg: 'rgba(124,58,237,0.15)', title: 'Income & expense tracking', desc: 'See exactly where your money goes every month.' },
+  { icon: '🎯', color: '#10b981', bg: 'rgba(16,185,129,0.15)', title: 'Smart budget alerts', desc: 'Set limits per category and get notified before you overspend.' },
+  { icon: '🏦', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', title: 'Savings goals & debt tracking', desc: 'Save for what matters and pay off what doesn\'t.' },
+  { icon: '📈', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', title: 'Financial reports', desc: 'Exportable reports with visual breakdowns in any currency.' },
+];
+
+function BrandingPanel() {
+  return (
+    <div className="d-none d-md-flex" style={{ flex: 1, background: 'linear-gradient(160deg, #1e1b4b 0%, #4c1d95 60%, #7c3aed 100%)', flexDirection: 'column', justifyContent: 'space-between', padding: '3rem', color: 'white', minHeight: '100vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ width: 38, height: 38, background: 'rgba(255,255,255,0.15)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>💰</div>
+        <span style={{ fontFamily: 'Georgia, serif', fontWeight: 900, fontSize: '1.4rem' }}>CozyCoin</span>
+      </div>
+      <div>
+        <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2rem', fontWeight: 700, lineHeight: 1.3, margin: '0 0 0.75rem', color: 'white' }}>Start your financial<br />journey today.</h1>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', lineHeight: 1.7, margin: 0 }}>Join thousands of users who take control of their finances with CozyCoin.</p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {FEATURES.map((f, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>{f.icon}</div>
+            <div>
+              <p style={{ color: 'white', fontWeight: 600, fontSize: '0.88rem', margin: '0 0 2px' }}>{f.title}</p>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', margin: 0, lineHeight: 1.5 }}>{f.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '1.5rem' }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>"The best time to take control of your money was yesterday. The second best time is now."</p>
+      </div>
+    </div>
+  );
+}
+
 function Register() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    name: '',
-    gmail: '',
-    password: '',
-   
-  });
+  const [formData, setFormData] = useState({ name: '', gmail: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,284 +61,45 @@ function Register() {
     }
   };
 
+  const inputStyle = { border: '1.5px solid #ddd6fe', borderRadius: 10, padding: '0.75rem 1rem', fontSize: '0.9rem', backgroundColor: 'white', color: '#111827', width: '100%', boxSizing: 'border-box', outline: 'none', display: 'block' };
+  const labelStyle = { fontWeight: 600, color: '#374151', fontSize: '0.85rem', display: 'block', marginBottom: '0.5rem' };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-
       <div style={{ display: 'flex', flex: 1 }}>
-
-        {/* LEFT — Branding */}
-        <div
-          className="d-none d-md-flex"
-          style={{
-            flex: 1,
-            background: 'linear-gradient(160deg, #7c3aed 0%, #6d28d9 40%, #4c1d95 100%)',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '3rem',
-            color: 'white',
-          }}
-        >
-          <div style={{ maxWidth: 380, textAlign: 'center' }}>
-
-            <div style={{
-              fontSize: '3.5rem',
-              fontWeight: 900,
-              letterSpacing: '-2px',
-              marginBottom: '0.3rem',
-              fontFamily: 'Georgia, serif'
-            }}>
-              CozyCoin
-            </div>
-            <p style={{
-              opacity: 0.7,
-              fontSize: '0.8rem',
-              letterSpacing: '4px',
-              textTransform: 'uppercase',
-              marginBottom: '1.5rem'
-            }}>
-              Smart Money Management
+        <BrandingPanel />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', backgroundColor: '#faf5ff' }}>
+          <div className="d-md-none" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#1e1b4b', fontFamily: 'Georgia, serif' }}>CozyCoin</div>
+            <p style={{ color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '3px', textTransform: 'uppercase', margin: 0 }}>Smart Money Management</p>
+          </div>
+          <div style={{ background: 'white', borderRadius: 24, padding: '2.5rem', width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(124,58,237,0.1)' }}>
+            <h2 style={{ fontWeight: 700, color: '#1e1b4b', fontSize: '1.7rem', margin: '0 0 0.3rem' }}>Create account</h2>
+            <p style={{ color: '#6b7280', marginBottom: '2rem', fontSize: '0.9rem' }}>Start your financial journey today.</p>
+            {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '0.75rem 1rem', color: '#dc2626', fontSize: '0.85rem', marginBottom: '1.25rem' }}>{error}</div>}
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={labelStyle}>Full name</label>
+                <input type="text" name="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required style={inputStyle} />
+              </div>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={labelStyle}>Email address</label>
+                <input type="email" name="gmail" placeholder="you@example.com" value={formData.gmail} onChange={handleChange} required style={inputStyle} />
+              </div>
+              <div style={{ marginBottom: '1.75rem' }}>
+                <label style={labelStyle}>Password</label>
+                <input type="password" name="password" placeholder="Create a strong password" value={formData.password} onChange={handleChange} required style={inputStyle} />
+              </div>
+              <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg, #1e1b4b, #7c3aed)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Creating account...' : 'Create account →'}
+              </button>
+            </form>
+            <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.88rem', color: '#6b7280' }}>
+              Already have an account?{' '}<Link to="/login" style={{ color: '#7c3aed', fontWeight: 700, textDecoration: 'none' }}>Sign in here</Link>
             </p>
-
-            <p style={{
-              fontSize: '1.05rem',
-              opacity: 0.85,
-              lineHeight: 1.8,
-              marginBottom: '2rem'
-            }}>
-              Join thousands of users who take control of their finances with CozyCoin.
-            </p>
-
-            {/* Feature list */}
-            <div style={{ textAlign: 'left' }}>
-              {[
-                { emoji: '📊', text: 'Track income & expenses' },
-                { emoji: '🎯', text: 'Set and monitor budgets' },
-                { emoji: '🏦', text: 'Reach your savings goals' },
-                { emoji: '💱', text: 'Multi-currency support' },
-              ].map((feature, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.7rem 0',
-                  borderBottom: '1px solid rgba(255,255,255,0.1)'
-                }}>
-                  <span style={{ fontSize: '1.3rem' }}>{feature.emoji}</span>
-                  <span style={{ fontSize: '0.95rem', opacity: 0.9 }}>{feature.text}</span>
-                </div>
-              ))}
-            </div>
-
           </div>
         </div>
-
-        {/* RIGHT — Register Form */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '2rem',
-          backgroundColor: '#faf5ff',
-        }}>
-
-          {/* Mobile app name */}
-          <div className="d-md-none text-center mb-4">
-            <div style={{
-              fontSize: '2.5rem',
-              fontWeight: 900,
-              letterSpacing: '-1px',
-              color: '#6d28d9',
-              fontFamily: 'Georgia, serif'
-            }}>
-              CozyCoin
-            </div>
-            <p style={{
-              color: '#9ca3af',
-              fontSize: '0.75rem',
-              letterSpacing: '3px',
-              textTransform: 'uppercase'
-            }}>
-              Smart Money Management
-            </p>
-          </div>
-
-          {/* Form Card */}
-          <div style={{
-            background: 'white',
-            borderRadius: 24,
-            padding: '2.5rem',
-            width: '100%',
-            maxWidth: 420,
-            boxShadow: '0 8px 40px rgba(109, 40, 217, 0.12)',
-          }}>
-            <h2 style={{
-              fontWeight: 700,
-              color: '#1e1b4b',
-              fontSize: '1.8rem',
-              marginBottom: '0.3rem'
-            }}>
-              Create account
-            </h2>
-            <p style={{
-              color: '#6b7280',
-              marginBottom: '2rem',
-              fontSize: '0.95rem'
-            }}>
-              Start your financial journey today
-            </p>
-
-            {error && (
-              <Alert color="danger" style={{ borderRadius: 10, fontSize: '0.9rem' }}>
-                {error}
-              </Alert>
-            )}
-
-            <Form onSubmit={handleSubmit}>
-
-              {/* Name Field */}
-              <FormGroup>
-                <Label style={{
-                  fontWeight: 600,
-                  color: '#374151',
-                  fontSize: '0.9rem',
-                  display: 'block',
-                  marginBottom: '0.5rem'
-                }}>
-                  Full name
-                </Label>
-                <Input
-                  type="text"
-                  name="name"
-                  placeholder="John Doe"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  style={{
-                    border: '1.5px solid #e5e7eb',
-                    borderRadius: 10,
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.9rem',
-                    backgroundColor: 'white',
-                    color: '#111827',
-                    boxShadow: 'none',
-                    width: '100%',
-                    display: 'block',
-                    marginTop: '0.5rem'
-                  }}
-                />
-              </FormGroup>
-
-              {/* Email Field */}
-              <FormGroup style={{ marginTop: '1.2rem' }}>
-                <Label style={{
-                  fontWeight: 600,
-                  color: '#374151',
-                  fontSize: '0.9rem',
-                  display: 'block',
-                  marginBottom: '0.5rem'
-                }}>
-                  Email address
-                </Label>
-                <Input
-                  type="email"
-                  name="gmail"
-                  placeholder="you@example.com"
-                  value={formData.gmail}
-                  onChange={handleChange}
-                  required
-                  style={{
-                    border: '1.5px solid #e5e7eb',
-                    borderRadius: 10,
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.9rem',
-                    backgroundColor: 'white',
-                    color: '#111827',
-                    boxShadow: 'none',
-                    width: '100%',
-                    display: 'block',
-                    marginTop: '0.5rem'
-                  }}
-                />
-              </FormGroup>
-
-              {/* Password Field */}
-              <FormGroup style={{ marginTop: '1.2rem' }}>
-                <Label style={{
-                  fontWeight: 600,
-                  color: '#374151',
-                  fontSize: '0.9rem',
-                  display: 'block',
-                  marginBottom: '0.5rem'
-                }}>
-                  Password
-                </Label>
-                <Input
-                  type="password"
-                  name="password"
-                  placeholder="Create a password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  style={{
-                    border: '1.5px solid #e5e7eb',
-                    borderRadius: 10,
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.9rem',
-                    backgroundColor: 'white',
-                    color: '#111827',
-                    boxShadow: 'none',
-                    width: '100%',
-                    display: 'block',
-                    marginTop: '0.5rem'
-                  }}
-                />
-              </FormGroup>
-
-              <Button
-                type="submit"
-                block
-                disabled={loading}
-                style={{
-                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '0.85rem',
-                  fontWeight: 700,
-                  fontSize: '1rem',
-                  letterSpacing: '0.5px',
-                  boxShadow: '0 4px 15px rgba(109, 40, 217, 0.3)',
-                  marginTop: '1.5rem',
-                  width: '100%'
-                }}
-              >
-                {loading ? <Spinner size="sm" /> : 'Create Account →'}
-              </Button>
-            </Form>
-
-            <div style={{
-              textAlign: 'center',
-              marginTop: '1.5rem',
-              fontSize: '0.9rem',
-              color: '#6b7280'
-            }}>
-              Already have an account?{' '}
-              <Link to="/login" style={{
-                color: '#7c3aed',
-                fontWeight: 700,
-                textDecoration: 'none'
-              }}>
-                Sign in here
-              </Link>
-            </div>
-
-          </div>
-        </div>
-
       </div>
-
       <Footer />
     </div>
   );

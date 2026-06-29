@@ -23,3 +23,16 @@ export const labelStyle = {
   fontSize: '0.85rem',
   marginBottom: '0.4rem',
 };
+
+export const formatNumberInput = (value) => {
+  if (!value) return '';
+  const num = value.toString().replace(/,/g, '');
+  if (isNaN(num)) return value;
+  const parts = num.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
+export const parseNumberInput = (value) => {
+  return value.toString().replace(/,/g, '');
+};

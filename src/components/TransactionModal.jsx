@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { createTransaction, getAccounts } from '../services/api';
 import CategoryPicker from './CategoryPicker';
+import { formatNumberInput, parseNumberInput } from '../utils/constants';
 import { TYPE_COLORS, inputStyle, labelStyle } from '../utils/constants';
+import { getRates, convert, getCurrencySymbol as getSymbol } from '../utils/exchangeRates';
+
+
+const CURRENCIES = ['USD', 'EUR', 'LBP', 'GBP'];
 
 function emptyForm() {
   return {
@@ -19,20 +24,95 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
   const [formErrors, setFormErrors]           = useState({});
   const [selectedCategoryName, setSelCatName] = useState('');
   const [submitting, setSubmitting]           = useState(false);
-
-
+  const [transactionCurrency, setTransactionCurrency] = useState('USD');
+  const [convertedAmount, setConvertedAmount]         = useState(null);
+  const [exchangeRate, setExchangeRate]       = useState(null);
+  const [fetchingRate, setFetchingRate]               = useState(false);
+  const [exchangeRates, setExchangeRates] = useState({});
 
   useEffect(() => {
     if (!isOpen) return;
-    setTransType(initialType);
-    setFormData(emptyForm());
-    setSelCatName('');
-    setFormErrors({});
-    getAccounts().then(setAccounts).catch(() => {});
+    const init = async () => {
+      setTransType(initialType);
+      setFormData(emptyForm());
+      setSelCatName('');
+      setFormErrors({});
+      setTransactionCurrency('USD');
+      setConvertedAmount(null);
+      setExchangeRate(null);
+      try {
+        const accs = await getAccounts();
+        setAccounts(accs);
+      } catch {}
+    };
+    init();
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (propAccounts) setAccounts(propAccounts); }, [propAccounts]);
   useEffect(() => { if (propCategories) setCategories(propCategories); }, [propCategories]);
+
+const [transferRate, setTransferRate] = useState(null);
+const [transferConvertedAmount, setTransferConvertedAmount] = useState(null);
+
+useEffect(() => {
+  if (transType !== 'transfer' || !formData.accountID || !formData.toAccountID) {
+    setTransferRate(null);
+    setTransferConvertedAmount(null);
+    return;
+  }
+  const fromAcc = accounts.find(a => String(a.accountID) === String(formData.accountID));
+  const toAcc   = accounts.find(a => String(a.accountID) === String(formData.toAccountID));
+  if (!fromAcc || !toAcc || fromAcc.currenciesCode === toAcc.currenciesCode) {
+    setTransferRate(null);
+    setTransferConvertedAmount(null);
+    return;
+  }
+  const fetchTransferRate = async () => {
+    const rates = await getRates();
+    const rate = convert(1, fromAcc.currenciesCode, toAcc.currenciesCode, rates);
+    setTransferRate(rate);
+    const a = parseFloat(formData.amount);
+    if (a > 0) setTransferConvertedAmount((a * rate).toFixed(2));
+  };
+  fetchTransferRate();
+}, [formData.accountID, formData.toAccountID, formData.amount, transType, accounts]);
+
+useEffect(() => {
+  getRates().then(r => setExchangeRates(r)).catch(() => {});
+}, []);
+
+useEffect(() => {
+  let cancelled = false;
+  const fetchRate = async () => {
+    const selectedAccount = accounts.find(a => String(a.accountID) === String(formData.accountID));
+    const accountCurrency = selectedAccount?.currenciesCode || 'USD';
+
+    if (!formData.accountID || transactionCurrency === accountCurrency) {
+      setConvertedAmount(null);
+      setExchangeRate(null);
+      return;
+    }
+
+    const amt = parseFloat(formData.amount);
+    if (!amt || amt <= 0) { setConvertedAmount(null); return; }
+
+    setFetchingRate(true);
+    try {
+      const rates = await getRates();
+      const rate = convert(1, transactionCurrency, accountCurrency, rates);
+      if (!cancelled) {
+        setExchangeRate(rate);
+        setConvertedAmount((amt * rate).toFixed(2));
+      }
+    } catch {
+      setConvertedAmount(null);
+    } finally {
+      if (!cancelled) setFetchingRate(false);
+    }
+  };
+  fetchRate();
+  return () => { cancelled = true; };
+}, [formData.amount, formData.accountID, transactionCurrency, accounts]);
 
   const clearErr = (field) =>
     setFormErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
@@ -59,29 +139,42 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
     if (transType === 'transfer' && !formData.toAccountID)
       errors.toAccountID = 'Please select a destination account';
 
-    if (!errors.accountID && transType !== 'income') {
-      const from = accounts.find(a => String(a.accountID) === String(formData.accountID));
-      if (from && amt > from.balance)
-        errors.accountID = `Insufficient funds — ${from.name} only has $${from.balance.toFixed(2)}`;
+    const selectedAccount = accounts.find(a => String(a.accountID) === String(formData.accountID));
+    const accountCurrency = selectedAccount?.currenciesCode || 'USD';
+    const finalAmount = transactionCurrency !== accountCurrency && convertedAmount
+      ? parseFloat(convertedAmount)
+      : amt;
+
+   if (!errors.accountID && transType !== 'income') {
+  const from = accounts.find(a => String(a.accountID) === String(formData.accountID));
+  if (from) {
+    // always compare in account currency
+    const amountInAccountCurrency = transactionCurrency !== accountCurrency && convertedAmount
+      ? parseFloat(convertedAmount)
+      : amt;
+    if (amountInAccountCurrency > from.balance) {
+      errors.accountID = `Insufficient funds — ${from.name} only has ${getSymbol(accountCurrency)}${from.balance.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
+  }
+}
 
     if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     setFormErrors({});
     setSubmitting(true);
 
-    console.log('formData before submit:', formData);
-
     try {
-      await createTransaction({
-        ...formData,
-        status: transType,
-        amount: amt,
-        accountID: parseInt(formData.accountID),
-        categoryID: formData.categoryID ? parseInt(formData.categoryID) : null,
-        subCategoryID: formData.subCategoryID ? parseInt(formData.subCategoryID) : null,
-        toAccountID: formData.toAccountID ? parseInt(formData.toAccountID) : null,
-        date: new Date(formData.date).toISOString(),
-      });
+     await createTransaction({
+  ...formData,
+  status: transType,
+  amount: finalAmount,
+  currenciesCode: accountCurrency,
+  accountID: parseInt(formData.accountID),
+  categoryID: formData.categoryID ? parseInt(formData.categoryID) : null,
+  subCategoryID: formData.subCategoryID ? parseInt(formData.subCategoryID) : null,
+  toAccountID: formData.toAccountID ? parseInt(formData.toAccountID) : null,
+  exchangeRate: transferRate ?? null,
+  date: new Date(formData.date).toISOString(),
+});
       onSuccess();
       onClose();
     } catch (err) {
@@ -97,6 +190,8 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
   if (!isOpen) return null;
 
   const amt = parseFloat(formData.amount) || 0;
+  const selectedAccount = accounts.find(a => String(a.accountID) === String(formData.accountID));
+  const accountCurrency = selectedAccount?.currenciesCode || 'USD';
 
   return (
     <div
@@ -140,15 +235,22 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
         <div style={{ marginBottom: '1rem' }}>
           <label style={labelStyle}>Amount</label>
           <input
-            type="number"
-            placeholder="0.00"
-            value={formData.amount}
-            onChange={e => { setFormData(p => ({ ...p, amount: e.target.value })); clearErr('amount'); }}
-            style={{ ...inputStyle, borderColor: formErrors.amount ? '#ef4444' : '#e5e7eb' }}
-          />
+  type="text"
+  placeholder="0.00"
+  value={formatNumberInput(formData.amount)}
+  onChange={e => {
+    const raw = parseNumberInput(e.target.value);
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setFormData(p => ({ ...p, amount: raw }));
+      clearErr('amount');
+    }
+  }}
+  style={{ ...inputStyle, borderColor: formErrors.amount ? '#ef4444' : '#e5e7eb' }}
+/>
           {formErrors.amount && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.amount}</div>}
         </div>
-{/* Account */}
+
+       {/* Account */}
 <div style={{ marginBottom: '1rem' }}>
   <label style={labelStyle}>{transType === 'transfer' ? 'From Account' : 'Account'}</label>
   {accounts.filter(a => a.accountType !== 'savings').length === 0 ? (
@@ -161,17 +263,30 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
   ) : (
     <select
       value={formData.accountID}
-      onChange={e => { setFormData(p => ({ ...p, accountID: e.target.value })); clearErr('accountID'); }}
+      onChange={e => {
+        const acc = accounts.find(a => String(a.accountID) === e.target.value);
+        setTransactionCurrency(acc?.currenciesCode || 'USD');
+        setConvertedAmount(null);
+        setExchangeRate(null);
+        setFormData(p => ({ ...p, accountID: e.target.value }));
+        clearErr('accountID');
+      }}
       style={{ ...inputStyle, borderColor: formErrors.accountID ? '#ef4444' : '#e5e7eb' }}
     >
       <option value="">Select account...</option>
       {accounts
         .filter(a => a.accountType !== 'savings')
         .map(a => {
-          const insufficient = transType !== 'income' && amt > 0 && a.balance < amt;
+          const accCurrency = a.currenciesCode || 'USD';
+          let amtInThisCurrency = amt;
+          if (amt > 0 && transactionCurrency !== accCurrency && Object.keys(exchangeRates).length) {
+            const toUSD = transactionCurrency === 'USD' ? amt : amt / (exchangeRates[transactionCurrency] || 1);
+            amtInThisCurrency = accCurrency === 'USD' ? toUSD : toUSD * (exchangeRates[accCurrency] || 1);
+          }
+          const insufficient = transType !== 'income' && amt > 0 && a.balance < amtInThisCurrency;
           return (
             <option key={a.accountID} value={a.accountID} disabled={insufficient}>
-              {a.name} — ${a.balance.toFixed(2)}{insufficient ? ' (insufficient funds)' : ''}
+              {a.name} ({accCurrency}) — {getSymbol(accCurrency)}{a.balance.toFixed(2)}{insufficient ? ' (insufficient funds)' : ''}
             </option>
           );
         })
@@ -181,6 +296,49 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
   {formErrors.accountID && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.accountID}</div>}
 </div>
 
+        {/* Currency selector */}
+        {transType !== 'transfer' && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={labelStyle}>
+              Transaction Currency
+              {accountCurrency && (
+                <span style={{ color: '#6b7280', marginLeft: '0.5rem', fontWeight: 400, fontSize: '0.78rem' }}>
+                  (account is in {accountCurrency})
+                </span>
+              )}
+            </label>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {CURRENCIES.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setTransactionCurrency(c)}
+                  style={{
+                    padding: '0.4rem 0.9rem', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontWeight: 700, fontSize: '0.82rem',
+                    background: transactionCurrency === c ? '#1e1b4b' : '#f3f4f6',
+                    color: transactionCurrency === c ? 'white' : '#6b7280',
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+
+            {/* Conversion display */}
+            {formData.accountID && transactionCurrency !== accountCurrency && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.82rem', color: '#1e40af', marginTop: '0.5rem' }}>
+                {fetchingRate ? '⏳ Fetching rate...' : convertedAmount ? (
+                  <>
+                    {formData.amount || '0'} {transactionCurrency} ≈ <strong>{convertedAmount}</strong> {accountCurrency}
+                    <span style={{ opacity: 0.6, marginLeft: '0.5rem' }}>(rate: {exchangeRate?.toFixed(4)})</span>
+                  </>
+                ) : (
+                  `Enter an amount to see conversion`
+                )}
+              </div>
+            )}
+          </div>
+        )}
 {/* To Account (transfer only) */}
 {transType === 'transfer' && (
   <div style={{ marginBottom: '1rem' }}>
@@ -194,13 +352,30 @@ function TransactionModal({ isOpen, onClose, onSuccess, accounts: propAccounts, 
       {accounts
         .filter(a => a.accountID !== parseInt(formData.accountID) && a.accountType !== 'savings')
         .map(a => (
-          <option key={a.accountID} value={a.accountID}>{a.name} — ${a.balance.toFixed(2)}</option>
+          <option key={a.accountID} value={a.accountID}>{a.name} ({a.currenciesCode}) — {a.currenciesCode} {a.balance.toFixed(2)}</option>
         ))
       }
     </select>
     {formErrors.toAccountID && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.3rem' }}>{formErrors.toAccountID}</div>}
+
+    {/* Transfer conversion preview */}
+    {transferRate && transferConvertedAmount && (
+      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.82rem', color: '#1e40af', marginTop: '0.5rem' }}>
+        <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>💱 Cross-currency transfer</div>
+        <div>
+          Enter amount in <strong>{accounts.find(a => String(a.accountID) === String(formData.accountID))?.currenciesCode}</strong> — it will be converted to <strong>{accounts.find(a => String(a.accountID) === String(formData.toAccountID))?.currenciesCode}</strong> automatically.
+        </div>
+        {formData.amount && parseFloat(formData.amount) > 0 && (
+          <div style={{ marginTop: '0.4rem', background: 'white', borderRadius: 6, padding: '0.4rem 0.6rem' }}>
+            {formData.amount} {accounts.find(a => String(a.accountID) === String(formData.accountID))?.currenciesCode} → <strong>{transferConvertedAmount}</strong> {accounts.find(a => String(a.accountID) === String(formData.toAccountID))?.currenciesCode}
+            <span style={{ opacity: 0.6, marginLeft: '0.5rem', fontSize: '0.75rem' }}>(rate: {transferRate?.toFixed(6)})</span>
+          </div>
+        )}
+      </div>
+    )}
   </div>
 )}
+        
 
         {/* Category */}
         {transType !== 'transfer' && (
